@@ -1,0 +1,51 @@
+/* Page-level pieces only; the stamp itself is styled inside its shadow root (content.js). */
+
+.tldr-anchor {
+  position: relative !important;
+}
+
+.tldr-spacer {
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+/* Blurs whatever is behind it (text nodes, images, video) regardless of LinkedIn's DOM. */
+.tldr-veil {
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 3 !important;
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  background: rgba(255, 255, 255, 0.35) !important;
+  cursor: pointer !important;
+}
+
+.tldr-veil.tldr-revealed {
+  overflow: visible !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: none !important;
+  pointer-events: none !important;
+}
+
+.tldr-shake {
+  animation: tldr-shake 0.25s 0.22s ease-out;
+}
+
+.tldr-off .tldr-veil,
+.tldr-off .tldr-spacer {
+  display: none !important;
+}
+
+@keyframes tldr-shake {
+  25% { transform: translate(-2px, 2px); }
+  50% { transform: translate(2px, -1px); }
+  75% { transform: translate(-1px, 1px); }
+}

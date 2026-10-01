@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "LinkedIn TL;DR",
+  "version": "0.1.0",
+  "description": "Blurs long LinkedIn posts and shows a one-sentence summary instead.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://ai-gateway.vercel.sh/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [
+    {
+      "matches": ["https://www.linkedin.com/*"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_ui": { "page": "options.html", "open_in_tab": true },
+  "action": { "default_title": "LinkedIn TL;DR settings" }
+}
