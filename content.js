@@ -10,10 +10,8 @@
 
   // Start summarizing well before the post scrolls into view so it's ready on arrival.
   const PREFETCH_MARGIN = '1500px 0px';
-  // A 260px-wide stamp rotated -30deg needs roughly this much height.
-  const MIN_VEIL_HEIGHT = 280;
-  // Clamped posts shorter than this aren't worth a summary.
-  const MIN_CLAMPED_CHARS = 80;
+  // Straight horizontal card needs around 170px minimum height.
+  const MIN_VEIL_HEIGHT = 170;
   // Header/footer lines ("see translation", "…more") are short; a bigger jump means we left the text block.
   const MAX_EXTRA_TEXT = 60;
   const MEDIA_SIBLING_LOOKAHEAD = 3;
@@ -21,38 +19,57 @@
   const STAMP_CSS = `
     .stamp {
       position: absolute; top: 50%; left: 50%; box-sizing: border-box;
-      width: 260px; max-width: 85%;
-      display: flex; flex-direction: column; align-items: center; gap: 6px;
-      padding: 12px 14px; border: 3px solid #d0021b; outline: 1px solid #d0021b; outline-offset: 3px;
-      border-radius: 6px; background: rgba(255, 255, 255, 0.85); color: #d0021b;
-      font: 800 15px/1.3 -apple-system, system-ui, sans-serif; text-align: center;
-      transform: translate(-50%, -50%) rotate(-30deg);
+      width: 400px; max-width: 90%;
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      padding: 14px 18px; border: 2px solid var(--theme, #0a66c2);
+      border-radius: 10px; background: rgba(255, 255, 255, 0.97); color: #1d2226;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+      font: 500 14px/1.45 -apple-system, system-ui, sans-serif; text-align: center;
+      transform: translate(-50%, -50%);
       cursor: pointer; pointer-events: auto;
+      transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .stamp:hover {
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    }
+    .badge-bar {
+      display: flex; gap: 8px; align-items: center; justify-content: center;
     }
     .badge {
-      padding: 1px 6px; border-radius: 4px; background: #d0021b; color: #fff;
-      font-size: 11px; letter-spacing: 0.08em;
+      padding: 3px 9px; border-radius: 4px; background: var(--theme, #0a66c2); color: #fff;
+      font-size: 11px; font-weight: 800; letter-spacing: 0.04em;
     }
-    .loading { width: 140px; border-color: #c9c9c9; outline-color: #c9c9c9; transform: translate(-50%, -50%); }
+    .meta-tag {
+      font-size: 11px; font-weight: 600; color: #5e6b75;
+    }
+    .summary-text {
+      color: #1d2226; font-size: 14px; font-weight: 600; line-height: 1.45;
+    }
+    .hint {
+      font-size: 11px; color: #777; font-weight: 400; margin-top: 2px;
+    }
+    .loading { width: 180px; border-color: #c9c9c9; }
     .loading .badge { background: #b5b5b5; }
-    .loading .text {
+    .loading .hint { display: none; }
+    .loading .summary-text {
       width: 100%; height: 10px; border-radius: 4px;
       background: linear-gradient(90deg, #e3e3e3 25%, #f5f5f5 50%, #e3e3e3 75%);
       background-size: 200% 100%; animation: shimmer 1s linear infinite;
     }
-    .slam { animation: slam 0.38s cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+    .slam { animation: slam 0.32s cubic-bezier(0.16, 1, 0.3, 1) both; }
     .revealed, .error {
-      top: 4px; right: 4px; left: auto; width: auto; max-width: none;
-      padding: 0; border: 0; outline: 0; background: none; transform: none; animation: none;
+      top: 6px; right: 8px; left: auto; width: auto; max-width: none;
+      padding: 0; border: 0; background: none; box-shadow: none; transform: none; animation: none;
     }
-    .revealed .text { display: none; }
-    .error { padding: 4px 8px; border: 1px solid #f5a623; background: #fff4e5; color: #1d2226; font-weight: 500; }
+    .revealed .summary-text, .revealed .meta-tag, .revealed .hint { display: none; }
+    .revealed .badge { opacity: 0.85; }
+    .revealed .badge:hover { opacity: 1; }
+    .error { padding: 4px 8px; border: 1px solid #f5a623; background: #fff4e5; color: #1d2226; font-weight: 500; border-radius: 4px; }
     .error .badge { background: #f5a623; }
     @keyframes shimmer { to { background-position: -200% 0; } }
     @keyframes slam {
-      0% { opacity: 0; transform: translate(-50%, -180%) rotate(-30deg) scale(2.6); }
-      60% { opacity: 1; transform: translate(-50%, -50%) rotate(-30deg) scale(0.92); }
-      100% { transform: translate(-50%, -50%) rotate(-30deg) scale(1); }
+      0% { opacity: 0; transform: translate(-50%, -68%) scale(0.95); }
+      100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
     }
   `;
 
@@ -105,6 +122,96 @@
       .replace(/\p{Extended_Pictographic}/gu, '')
       .replace(/\s+/g, ' ')
       .trim();
+  }
+
+  function parseCount(str) {
+    if (!str) return 0;
+    const match = str.toLowerCase().match(/([\d.,]+)\s*([kmb])?/);
+    if (!match) return 0;
+    let numStr = match[1];
+    if (numStr.includes('.') && numStr.includes(',')) {
+      numStr = numStr.replace(/\./g, '').replace(',', '.');
+    } else if (numStr.includes('.') && !match[2]) {
+      if (/\.\d{3}$/.test(numStr)) numStr = numStr.replace(/\./g, '');
+    } else if (numStr.includes(',') && !match[2]) {
+      if (/,\d{3}$/.test(numStr)) numStr = numStr.replace(/,/g, '');
+      else numStr = numStr.replace(',', '.');
+    } else {
+      numStr = numStr.replace(',', '.');
+    }
+    const num = parseFloat(numStr);
+    if (isNaN(num)) return 0;
+    const unit = match[2];
+    if (unit === 'k' || unit === 'b') return Math.round(num * 1000);
+    if (unit === 'm') return Math.round(num * 1000000);
+    return Math.round(num);
+  }
+
+  function formatShort(num) {
+    if (!num) return '0';
+    if (num >= 1000000) return (num / 1000000).toFixed(1).replace('.0', '') + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1).replace('.0', '') + 'B';
+    return String(num);
+  }
+
+  function getPostMetrics(host) {
+    const card = host.closest('.feed-shared-update-v2, [data-urn], [data-id], .occludable-update, article') || host.parentElement;
+    if (!card) return { likes: 0, comments: 0, reposts: 0, score: 0 };
+
+    const rxEl = card.querySelector(
+      '.social-details-social-counts__reactions-count, [data-test-id="social-actions__reactions-count"], button[aria-label*="tepki"], button[aria-label*="reaction"], button[aria-label*="beğeni"], button[aria-label*="like"]'
+    );
+    const cmEl = card.querySelector(
+      '.social-details-social-counts__comments, button[aria-label*="yorum"], button[aria-label*="comment"]'
+    );
+    const rpEl = card.querySelector(
+      'button[aria-label*="yeniden paylaşım"], button[aria-label*="repost"]'
+    );
+
+    const likes = parseCount(rxEl?.textContent || rxEl?.getAttribute('aria-label') || '');
+    const comments = parseCount(cmEl?.textContent || cmEl?.getAttribute('aria-label') || '');
+    const reposts = parseCount(rpEl?.textContent || rpEl?.getAttribute('aria-label') || '');
+    const score = (likes * 1) + (comments * 3) + (reposts * 5);
+
+    return { likes, comments, reposts, score };
+  }
+
+  function classifyPost(metrics) {
+    const { likes, comments, reposts, score } = metrics;
+
+    if (likes >= 1000 || comments >= 100 || score >= 1500) {
+      return {
+        level: 'VIRAL',
+        badge: '🚀 VİRAL',
+        themeColor: '#7c3aed',
+        metaText: `${formatShort(likes)} beğeni · ${formatShort(comments)} yorum`,
+      };
+    }
+
+    if (likes >= 150 || comments >= 20 || score >= 300) {
+      return {
+        level: 'POPULAR',
+        badge: '🔥 BAŞARILI',
+        themeColor: '#ea580c',
+        metaText: `${formatShort(likes)} beğeni · ${formatShort(comments)} yorum`,
+      };
+    }
+
+    if (comments >= 15 && (comments / (likes || 1)) >= 0.15) {
+      return {
+        level: 'DISCUSSION',
+        badge: '💬 TARTIŞMA',
+        themeColor: '#0284c7',
+        metaText: `${formatShort(comments)} yorum`,
+      };
+    }
+
+    return {
+      level: 'NORMAL',
+      badge: 'TL;DR',
+      themeColor: '#0a66c2',
+      metaText: likes > 0 ? `${formatShort(likes)} beğeni` : '',
+    };
   }
 
   // Climb out of LinkedIn's clamping wrappers to the block that holds only the post text.
@@ -202,6 +309,9 @@
     // Kriter: Saf metin (linkler, hashtagler ve emojiler hariç) en az minChars (400) karakter olmalı
     if (pureText.length < minChars) return;
 
+    const metrics = getPostMetrics(host);
+    const info = classifyPost(metrics);
+
     const section = textSection(host);
     const anchor = section.parentElement;
     if (!anchor) return;
@@ -214,8 +324,14 @@
     const shadow = veil.attachShadow({ mode: 'open' });
     shadow.innerHTML =
       `<style>${STAMP_CSS}</style>` +
-      '<div class="stamp loading" title="Click to show / hide the original post">' +
-      '<span class="badge">TL;DR</span><span class="text"></span></div>';
+      `<div class="stamp loading" style="--theme: ${info.themeColor};" title="Orijinal gönderiyi göster / gizle">` +
+        `<div class="badge-bar">` +
+          `<span class="badge">${info.badge}</span>` +
+          (info.metaText ? `<span class="meta-tag">${info.metaText}</span>` : '') +
+        `</div>` +
+        `<div class="summary-text"></div>` +
+        `<div class="hint">Orijinal metni açmak için tıkla</div>` +
+      `</div>`;
     const stamp = shadow.querySelector('.stamp');
     anchor.append(veil);
 
@@ -238,7 +354,8 @@
 
     stamp.classList.remove('loading');
     if (res?.ok) {
-      stamp.querySelector('.text').textContent = res.summary;
+      const summaryEl = stamp.querySelector('.summary-text');
+      if (summaryEl) summaryEl.textContent = res.summary;
       stamp.classList.add('slam');
       veil.classList.add('tldr-shake');
       return;
@@ -249,7 +366,8 @@
       post.revealed = true;
       veil.classList.add('tldr-revealed');
       stamp.classList.add('error');
-      stamp.querySelector('.text').textContent = 'Configure LLM provider in settings';
+      const summaryEl = stamp.querySelector('.summary-text');
+      if (summaryEl) summaryEl.textContent = 'Configure LLM provider in settings';
       veil.onclick = (e) => {
         e.stopPropagation();
         chrome.runtime.sendMessage({ type: 'openOptions' });
