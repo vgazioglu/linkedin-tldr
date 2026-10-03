@@ -377,6 +377,21 @@
     return (more && more.getClientRects().length > 0) || el.scrollHeight > el.clientHeight + 2;
   }
 
+  function renderViralBanner(host, info) {
+    if (!host?.parentElement) return;
+    let banner = host.parentElement.querySelector(':scope > .tldr-viral-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.className = 'tldr-viral-banner';
+      host.before(banner);
+    }
+    banner.style.setProperty('--theme', info.themeColor);
+    banner.innerHTML = `
+      <span class="tldr-badge">${info.badge}</span>
+      ${info.metaText ? `<span class="tldr-meta">${info.metaText}</span>` : ''}
+    `;
+  }
+
   async function process(host) {
     const text = postText(host);
     const pureText = extractPureText(text);
@@ -385,16 +400,20 @@
     const info = classifyPost(metrics);
     const isHighInteraction = info.level !== 'NORMAL';
 
-    // Şartlar:
-    // 1. Saf metin uzunluğu minChars (280) veya üzerindeyse, VEYA
-    // 2. LinkedIn tarafından "…more" ile kısaltılmışsa ve en az 100 karakterse, VEYA
-    // 3. Viral veya Başarılı bir gönderiyse ve en az 80 karakter metin içeriyorsa
-    const qualifiesByLength = pureText.length >= minChars;
-    const qualifiesByClamp = isClamped(host) && pureText.length >= MIN_CLAMPED_CHARS;
-    const qualifiesByViral = isHighInteraction && pureText.length >= 80;
+    const isLong = pureText.length >= minChars || (isClamped(host) && pureText.length >= MIN_CLAMPED_CHARS);
 
-    if (!qualifiesByLength && !qualifiesByClamp && !qualifiesByViral) return;
+    // 1. Kısa ama Viral / Başarılı gönderiler:
+    // Metin perdelenmez/gizlenmez, LLM'e özetletilmez ve ASLA "TL;DR" etiketi konmaz.
+    // Orijinal metnin hemen üstüne şık bir Viral/Başarılı bilgi kutucuğu iliştirilir.
+    if (!isLong) {
+      if (isHighInteraction && pureText.length >= 40) {
+        renderViralBanner(host, info);
+      }
+      return;
+    }
 
+    // 2. Uzun veya "daha fazla gör" ile kısaltılmış gönderiler:
+    // Normal TL;DR veya Viral/Başarılı TL;DR kartı ile özetlenir.
     const section = textSection(host);
     const anchor = section.parentElement;
     if (!anchor) return;
