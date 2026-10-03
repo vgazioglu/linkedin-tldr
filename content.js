@@ -46,17 +46,19 @@
     }
     .thumb-container {
       flex-shrink: 0;
-      width: 110px;
-      height: 82px;
+      width: 125px;
+      height: 135px;
+      border: 1px solid rgba(0, 0, 0, 0.12);
       border-radius: 8px;
       overflow: hidden;
-      background: #eef3f8;
+      position: relative;
+      background: var(--bg-card, #ffffff);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      pointer-events: none;
     }
-    .thumb-img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
+    .mini-scaler {
+      pointer-events: none;
+      user-select: none;
     }
     .card-content {
       flex: 1;
@@ -360,42 +362,53 @@
     return null;
   }
 
-  function getPostThumbnail(card) {
+  function createPostThumbnail(card) {
     if (!card) return null;
 
-    // 1. Video poster check
-    const videoPosterEl = card.querySelector('[data-poster-url]');
-    if (videoPosterEl) {
-      const u = videoPosterEl.getAttribute('data-poster-url');
-      if (u) return u;
-    }
-    const video = card.querySelector('video[poster]');
-    if (video?.poster) return video.poster;
+    const thumbContainer = document.createElement('div');
+    thumbContainer.className = 'thumb-container';
 
-    // 2. Article / Link preview images
-    const articleImg = card.querySelector(
-      '.feed-shared-article__image img, .feed-shared-external-v2__image img, [data-test-id*="article-image"] img'
-    );
-    if (articleImg?.src) return articleImg.src;
-
-    // 3. Post images (excluding avatars, emojis, and reactions)
-    const imgs = card.querySelectorAll('img');
-    for (const img of imgs) {
-      const src = img.src || img.getAttribute('data-delayed-url') || '';
-      if (!src || src.startsWith('data:image/svg')) continue;
-
-      if (img.closest('.feed-shared-actor, [class*="actor"], .comments-post-meta, [class*="avatar"], .presence-entity, [class*="reaction"], [class*="icon"]')) {
-        continue;
+    // Orijinal gönderi kartını klonla
+    const clone = card.cloneNode(true);
+    clone.querySelectorAll('.tldr-compact-host, .tldr-viral-banner, .tldr-post-hidden').forEach((e) => {
+      if (e.classList.contains('tldr-post-hidden')) {
+        e.classList.remove('tldr-post-hidden');
+      } else {
+        e.remove();
       }
+    });
 
-      const w = img.naturalWidth || img.clientWidth || img.getBoundingClientRect().width;
-      const h = img.naturalHeight || img.clientHeight || img.getBoundingClientRect().height;
-      if (w > 0 && (w < 80 || h < 60)) continue;
+    // Küçük resim içinde video ve sesleri durdur ve sessize al
+    clone.querySelectorAll('video, audio').forEach((media) => {
+      try {
+        media.pause?.();
+        media.muted = true;
+        media.removeAttribute('autoplay');
+      } catch {}
+    });
 
-      return src;
-    }
+    // Klon elemanlarının görünür olduğundan emin ol
+    clone.querySelectorAll('*').forEach((el) => {
+      if (el.style.display === 'none') el.style.display = '';
+    });
 
-    return null;
+    const cardWidth = card.offsetWidth || 560;
+    const targetWidth = 125;
+    const scale = targetWidth / cardWidth;
+
+    const scaler = document.createElement('div');
+    scaler.className = 'mini-scaler';
+    scaler.style.cssText = `
+      width: ${cardWidth}px;
+      transform: scale(${scale});
+      transform-origin: top left;
+      pointer-events: none;
+      user-select: none;
+    `;
+    scaler.appendChild(clone);
+    thumbContainer.appendChild(scaler);
+
+    return thumbContainer;
   }
 
   function findPostMedia(card, section) {
@@ -481,7 +494,6 @@
 
     const section = textSection(host);
     const media = findPostMedia(card, section);
-    const thumbUrl = getPostThumbnail(card);
 
     const isDark = document.documentElement.classList.contains('theme--dark') ||
       document.body?.classList.contains('theme--dark') ||
@@ -498,11 +510,7 @@
     shadow.innerHTML = `
       <style>${STAMP_CSS}</style>
       <div class="compact-card loading" style="--theme: ${info.themeColor}; --bg-card: ${bgCard}; --text-color: ${textColor}; --meta-color: ${metaColor}; --hint-color: ${hintColor};" title="Orijinal gönderiyi göster / gizle">
-        ${thumbUrl ? `
-          <div class="thumb-container">
-            <img class="thumb-img" src="${thumbUrl}" alt="" />
-          </div>
-        ` : ''}
+        <div class="card-thumb-slot"></div>
         <div class="card-content">
           <div class="badge-bar">
             <span class="badge">${info.badge}</span>
@@ -515,6 +523,14 @@
     `;
 
     const compactCard = shadow.querySelector('.compact-card');
+    const thumbSlot = shadow.querySelector('.card-thumb-slot');
+    const postThumb = createPostThumbnail(card);
+    if (postThumb && thumbSlot) {
+      thumbSlot.replaceWith(postThumb);
+    } else if (thumbSlot) {
+      thumbSlot.remove();
+    }
+
     section.before(container);
 
     // Orijinal metni ve medyayı gizle (yerine kompakt thumbnail kartı geçer)
