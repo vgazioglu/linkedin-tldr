@@ -422,26 +422,63 @@
       .replace(/'/g, '&#039;');
   }
 
-  function getPostAuthorInfo(card) {
-    if (!card) return null;
-    const actor = card.querySelector(
-      '.feed-shared-actor, .update-components-actor, .feed-shared-update-v2__actor, [data-test-id*="entity-lockup"], .base-main-feed-card__entity-lockup, div[class*="actor"]'
-    ) || (card.tagName === 'ARTICLE' ? card.querySelector('.flex:has(img)') || card.children[2] : null);
+  function getPostAuthorInfo(card, section) {
+    if (!card && !section) return null;
+
+    // 1. Gönderi içindeki actor / gönderici bloğunu bul
+    let actor = null;
+    if (card) {
+      actor = card.querySelector(
+        '.feed-shared-update-v2__actor, .update-components-actor, .feed-shared-actor, [data-test-id*="entity-lockup"], .base-main-feed-card__entity-lockup, div[class*="actor"]'
+      );
+    }
+    // Fallback: metin bölümünden önceki kardeş elemanları tara
+    if (!actor && section && section.parentElement) {
+      let prev = section.previousElementSibling;
+      while (prev) {
+        if (prev.querySelector('img') || (prev.className && typeof prev.className === 'string' && (prev.className.includes('actor') || prev.className.includes('header')))) {
+          actor = prev;
+          break;
+        }
+        prev = prev.previousElementSibling;
+      }
+    }
 
     if (!actor) return null;
 
-    // 1. Profil Resmi (Avatar)
+    // 2. Hem yazar bilgilerini hem de sağ üstteki (...) ve (X) menüsünü içeren EN ÜST SATIRI bul
+    let headerRow = actor;
+    const controlMenu = card?.querySelector(
+      '.feed-shared-control-menu, .feed-shared-update-v2__control-menu, [class*="control-menu"], button[aria-label*="Seçenekler"], button[aria-label*="More actions"], button[aria-label*="Options"]'
+    );
+    if (controlMenu && card) {
+      let p = actor;
+      while (p && p !== card && p !== document.body) {
+        if (p.contains(controlMenu)) {
+          headerRow = p;
+          break;
+        }
+        p = p.parentElement;
+      }
+    } else {
+      const parentRow = actor.closest(
+        '.feed-shared-update-v2__actor, .update-components-actor, [class*="update__actor"], [class*="feed-shared-update-v2__actor"]'
+      );
+      if (parentRow) headerRow = parentRow;
+    }
+
+    // 3. Profil Resmi (Avatar)
     let avatarUrl = '';
-    const avatarImg = actor.querySelector(
+    const avatarImg = headerRow.querySelector(
       '.update-components-actor__avatar-image, .feed-shared-actor__avatar-image, .presence-entity__image, img.evi-image, img:not([src*="data:image/svg"])'
     );
     if (avatarImg?.src && !avatarImg.src.startsWith('data:image/svg')) {
       avatarUrl = avatarImg.src;
     }
 
-    // 2. Gönderen Kişi / Kurum Adı
+    // 4. Gönderen Kişi / Kurum Adı
     let name = '';
-    const nameEl = actor.querySelector(
+    const nameEl = headerRow.querySelector(
       '.update-components-actor__name, .feed-shared-actor__name, [class*="actor__name"], [class*="actor__title"], a[data-tracking-control-name*="actor"], a[href*="/in/"], a[href*="/company/"]'
     );
     if (nameEl) {
@@ -450,9 +487,9 @@
       name = name.split('\n')[0].replace(/•.*$/, '').trim();
     }
 
-    // 3. Ünvan / Açıklama / Şirket
+    // 5. Ünvan / Açıklama / Şirket
     let headline = '';
-    const descEl = actor.querySelector(
+    const descEl = headerRow.querySelector(
       '.update-components-actor__description, .feed-shared-actor__description, [class*="actor__description"]'
     );
     if (descEl) {
@@ -460,9 +497,9 @@
       headline = (visual ? visual.innerText : descEl.innerText || '').trim().replace(/\s+/g, ' ');
     }
 
-    // 4. Gönderi Zamanı (kaç saat/gün önce)
+    // 6. Gönderi Zamanı (kaç saat/gün önce: "4d", "1g", "3 sa" vb.)
     let timeAgo = '';
-    const subDescEl = actor.querySelector(
+    const subDescEl = headerRow.querySelector(
       '.update-components-actor__sub-description, .feed-shared-actor__sub-description, [class*="actor__sub-description"], time'
     );
     if (subDescEl) {
@@ -471,11 +508,15 @@
       const parts = raw.split('•').map(p => p.trim()).filter(p => p && !p.includes('🌐') && !p.includes('Public') && !p.includes('Herkese açık') && !p.includes('Düzenlendi') && !p.includes('Edited'));
       timeAgo = parts[0] || '';
     }
+    if (!timeAgo) {
+      const timeMatch = headerRow.innerText.match(/\b\d+\s*(?:s[ah]|dk|g|h|ay|yıl|d|m|y|w|mo)\b/i);
+      if (timeMatch) timeAgo = timeMatch[0];
+    }
 
     // Fallback: spesifik sınıflar bulunamazsa satırlardan ayrıştır
     if (!name || !headline) {
-      const lines = actor.innerText.split('\n').map(s => s.trim()).filter(Boolean);
-      if (!name && lines[0]) name = lines[0];
+      const lines = headerRow.innerText.split('\n').map(s => s.trim()).filter(Boolean);
+      if (!name && lines[0]) name = lines[0].replace(/•.*$/, '').trim();
       if (!headline && lines[1] && !lines[1].includes('takipçi') && !lines[1].includes('followers')) {
         headline = lines[1];
       }
@@ -484,7 +525,7 @@
       }
     }
 
-    return { actor, avatarUrl, name, headline, timeAgo };
+    return { actor: headerRow, avatarUrl, name, headline, timeAgo };
   }
 
   function findPostMedia(card, section) {
@@ -568,7 +609,7 @@
 
     // 2. Uzun veya "daha fazla gör" ile kısaltılmış gönderiler:
     const card = host.closest(
-      '.feed-shared-update-v2, [data-urn], [data-id], [data-activity-urn], .main-feed-activity-card, .main-feed-activity-card-with-comments, .occludable-update, article, .feed-shared-update'
+      '.feed-shared-update-v2, [data-view-name*="feed"], [data-urn], [data-id], [data-activity-urn], .main-feed-activity-card, .main-feed-activity-card-with-comments, .occludable-update, article, .feed-shared-update'
     ) || host.parentElement?.parentElement;
 
     const section = textSection(host);
@@ -583,7 +624,7 @@
     const metaColor = isDark ? '#8b949e' : '#5e6b75';
     const hintColor = isDark ? '#8b949e' : '#777777';
 
-    const author = getPostAuthorInfo(card);
+    const author = getPostAuthorInfo(card, section);
     const actorEl = author?.actor;
 
     const avatarHtml = author?.avatarUrl
