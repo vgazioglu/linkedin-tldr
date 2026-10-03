@@ -156,32 +156,71 @@
 
   function getPostMetrics(host) {
     const card = host.closest(
-      '.feed-shared-update-v2, [data-urn], [data-id], [data-activity-urn], .main-feed-activity-card-with-comments, .occludable-update, article'
-    ) || host.parentElement;
+      '.feed-shared-update-v2, [data-urn], [data-id], [data-activity-urn], .main-feed-activity-card-with-comments, .occludable-update, article, .feed-shared-update'
+    ) || host.parentElement?.parentElement;
     if (!card) return { likes: 0, comments: 0, reposts: 0, score: 0 };
 
-    const rxEl = card.querySelector(
-      '[data-num-reactions], .social-details-social-counts__reactions-count, [data-test-id="social-actions__reaction-count"], [data-test-id="social-actions__reactions"], button[aria-label*="tepki"], button[aria-label*="reaction"], button[aria-label*="beğeni"], button[aria-label*="like"]'
-    );
-    const cmEl = card.querySelector(
-      '[data-num-comments], .social-details-social-counts__comments, [data-test-id="social-actions__comments"], button[aria-label*="yorum"], button[aria-label*="comment"]'
-    );
-    const rpEl = card.querySelector(
-      '[data-num-reposts], button[aria-label*="yeniden paylaşım"], button[aria-label*="repost"], [data-test-id*="repost"]'
-    );
+    let likes = 0, comments = 0, reposts = 0;
 
-    const likes = parseCount(rxEl?.getAttribute('data-num-reactions') || rxEl?.textContent || rxEl?.getAttribute('aria-label') || '');
-    const comments = parseCount(cmEl?.getAttribute('data-num-comments') || cmEl?.textContent || cmEl?.getAttribute('aria-label') || '');
-    const reposts = parseCount(rpEl?.getAttribute('data-num-reposts') || rpEl?.textContent || rpEl?.getAttribute('aria-label') || '');
+    // 1. Doğrudan data-num niteliklerinden oku
+    const numRx = card.querySelector('[data-num-reactions]');
+    if (numRx) likes = parseCount(numRx.getAttribute('data-num-reactions'));
+    const numCm = card.querySelector('[data-num-comments]');
+    if (numCm) comments = parseCount(numCm.getAttribute('data-num-comments'));
+    const numRp = card.querySelector('[data-num-reposts]');
+    if (numRp) reposts = parseCount(numRp.getAttribute('data-num-reposts'));
+
+    // 2. Sosyal sayaç barı metninden oku (.social-details-social-counts)
+    const countsBar = card.querySelector('.social-details-social-counts, [class*="social-counts"], [class*="social-actions"]');
+    if (countsBar) {
+      const barText = countsBar.textContent || '';
+      
+      if (!comments) {
+        const cmMatch = barText.match(/([\d.,]+(?:\s*[kmb])?)\s*(?:yorum|comment)/i);
+        if (cmMatch) comments = parseCount(cmMatch[1]);
+      }
+      
+      if (!reposts) {
+        const rpMatch = barText.match(/([\d.,]+(?:\s*[kmb])?)\s*(?:yeniden paylaşım|paylaşım|repost)/i);
+        if (rpMatch) reposts = parseCount(rpMatch[1]);
+      }
+
+      if (!likes) {
+        const rxEl = countsBar.querySelector(
+          '.social-details-social-counts__reactions-count, [class*="reactions-count"], [data-test-id*="reaction-count"]'
+        );
+        if (rxEl) likes = parseCount(rxEl.textContent);
+      }
+    }
+
+    // 3. Buton ve Linklerin aria-label / text içeriklerini tara
+    if (!likes || !comments || !reposts) {
+      for (const el of card.querySelectorAll('button, a')) {
+        const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+        const text = (el.textContent || '').trim().toLowerCase();
+
+        if (!likes && (aria.includes('tepki') || aria.includes('reaction') || aria.includes('beğen') || aria.includes('like'))) {
+          likes = parseCount(aria || text);
+        }
+        if (!comments && (aria.includes('yorum') || aria.includes('comment') || text.includes('yorum') || text.includes('comment'))) {
+          comments = parseCount(aria || text);
+        }
+        if (!reposts && (aria.includes('repost') || aria.includes('paylaşım') || text.includes('repost') || text.includes('paylaşım'))) {
+          reposts = parseCount(aria || text);
+        }
+      }
+    }
+
     const score = (likes * 1) + (comments * 3) + (reposts * 5);
-
     return { likes, comments, reposts, score };
   }
 
   function classifyPost(metrics) {
     const { likes, comments, reposts, score } = metrics;
 
-    if (likes >= 1000 || comments >= 100 || score >= 1500) {
+    // Gerçekçi eşikler (Kişisel akış ortamı için optimize edildi):
+    // 🚀 VİRAL: 200+ beğeni veya 25+ yorum veya 300+ skor
+    if (likes >= 200 || comments >= 25 || score >= 300) {
       return {
         level: 'VIRAL',
         badge: '🚀 VİRAL',
@@ -190,7 +229,8 @@
       };
     }
 
-    if (likes >= 150 || comments >= 20 || score >= 300) {
+    // 🔥 BAŞARILI: 40+ beğeni veya 6+ yorum veya 60+ skor
+    if (likes >= 40 || comments >= 6 || score >= 60) {
       return {
         level: 'POPULAR',
         badge: '🔥 BAŞARILI',
@@ -199,7 +239,8 @@
       };
     }
 
-    if (comments >= 15 && (comments / (likes || 1)) >= 0.15) {
+    // 💬 TARTIŞMA: Yorum sayısı belirgin olanlar
+    if (comments >= 6 && (comments / (likes || 1)) >= 0.12) {
       return {
         level: 'DISCUSSION',
         badge: '💬 TARTIŞMA',
@@ -356,10 +397,38 @@
 
     stamp.classList.remove('loading');
     if (res?.ok) {
+      // Gönderi ekrana yaklaştığında metrikleri tekrar tara ve rozeti güncelle
+      const freshMetrics = getPostMetrics(host);
+      const freshInfo = classifyPost(freshMetrics);
+
+      stamp.style.setProperty('--theme', freshInfo.themeColor);
+      const badgeEl = stamp.querySelector('.badge');
+      if (badgeEl) badgeEl.textContent = freshInfo.badge;
+
+      const badgeBar = stamp.querySelector('.badge-bar');
+      let metaEl = stamp.querySelector('.meta-tag');
+      if (freshInfo.metaText) {
+        if (!metaEl && badgeBar) {
+          metaEl = document.createElement('span');
+          metaEl.className = 'meta-tag';
+          badgeBar.appendChild(metaEl);
+        }
+        if (metaEl) metaEl.textContent = freshInfo.metaText;
+      } else if (metaEl) {
+        metaEl.remove();
+      }
+
       const summaryEl = stamp.querySelector('.summary-text');
       if (summaryEl) summaryEl.textContent = res.summary;
       stamp.classList.add('slam');
       veil.classList.add('tldr-shake');
+
+      console.log('[LinkedIn TL;DR]', {
+        pureLen: pureText.length,
+        metrics: freshMetrics,
+        level: freshInfo.level,
+        badge: freshInfo.badge,
+      });
       return;
     }
 
