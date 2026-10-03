@@ -4,7 +4,13 @@
   "version": "0.1.0",
   "description": "Blurs long LinkedIn posts and shows a one-sentence summary instead.",
   "permissions": ["storage"],
-  "host_permissions": ["https://ai-gateway.vercel.sh/*"],
+  "host_permissions": [
+    "https://ai-gateway.vercel.sh/*",
+    "http://localhost:4000/*",
+    "http://127.0.0.1:4000/*",
+    "http://localhost:11434/*",
+    "http://127.0.0.1:11434/*"
+  ],
   "background": { "service_worker": "background.js", "type": "module" },
   "content_scripts": [
     {

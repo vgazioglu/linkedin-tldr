@@ -56,7 +56,7 @@
     }
   `;
 
-  let minChars = 280;
+  let minChars = 400;
   let noKeyShown = false;
   const posts = new WeakMap(); // anchor element -> post state
 
@@ -95,6 +95,16 @@
     const clone = el.cloneNode(true);
     clone.querySelectorAll('button, .visually-hidden').forEach((n) => n.remove());
     return clean(clone.textContent);
+  }
+
+  // URL'ler, hashtag'ler ve emojilerden arındırılmış saf okunabilir metin
+  function extractPureText(text) {
+    return text
+      .replace(/https?:\/\/\S+|www\.\S+|lnkd\.in\/\S+/gi, '')
+      .replace(/#[^\s#]+/gu, '')
+      .replace(/\p{Extended_Pictographic}/gu, '')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   // Climb out of LinkedIn's clamping wrappers to the block that holds only the post text.
@@ -186,9 +196,11 @@
   }
 
   async function process(host) {
-    // LinkedIn clamps posts to ~3 lines behind "…more"; those count as long even if the full text is short.
     const text = postText(host);
-    if (text.length < minChars && !(isClamped(host) && text.length >= MIN_CLAMPED_CHARS)) return;
+    const pureText = extractPureText(text);
+
+    // Kriter: Saf metin (linkler, hashtagler ve emojiler hariç) en az minChars (400) karakter olmalı
+    if (pureText.length < minChars) return;
 
     const section = textSection(host);
     const anchor = section.parentElement;
@@ -237,7 +249,7 @@
       post.revealed = true;
       veil.classList.add('tldr-revealed');
       stamp.classList.add('error');
-      stamp.querySelector('.text').textContent = 'Add your AI Gateway API key in settings';
+      stamp.querySelector('.text').textContent = 'Configure LLM provider in settings';
       veil.onclick = (e) => {
         e.stopPropagation();
         chrome.runtime.sendMessage({ type: 'openOptions' });
@@ -260,7 +272,7 @@
     true,
   );
 
-  function applySettings({ enabled = true, minChars: min = 280 }) {
+  function applySettings({ enabled = true, minChars: min = 400 }) {
     minChars = min;
     document.documentElement.classList.toggle('tldr-off', !enabled);
   }

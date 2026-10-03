@@ -1,14 +1,16 @@
-import { MODELS, getSettings } from './settings.js';
+import { MODELS, PROVIDERS, getSettings } from './settings.js';
 
-const GATEWAY_URL = 'https://ai-gateway.vercel.sh/v1/chat/completions';
 const MAX_INPUT_CHARS = 6000;
 const inFlight = new Map();
 
 const systemPrompt = (language) =>
-  `You compress LinkedIn posts. Reply with exactly ONE plain sentence in ${language}, ` +
-  `at most 25 words, stating the post's actual point: what happened, what is claimed, or what is being sold. ` +
+  `You summarize LinkedIn posts. Regardless of what language the original post is written in (especially if English), ALWAYS translate and write the summary in ${language}. ` +
+  `Reply with exactly ONE concise plain sentence in ${language} (at most 20 words) stating what happened, claimed, or sold. ` +
   `Drop motivational fluff, hashtags, emojis and calls to action. ` +
-  `If the post is engagement bait or a humblebrag, say so plainly. No preamble, no quotes.`;
+  `If the post is engagement bait or a humblebrag, say so plainly. No preamble, no quotes, no markdown.\n\n` +
+  `Example:\n` +
+  `Post: I am excited to announce our company raised $10M from investors! We are also hiring designers.\n` +
+  `Summary: Şirket 10 milyon dolar yatırım aldı ve tasarımcı arıyor.`;
 
 chrome.action.onClicked.addListener(() => chrome.runtime.openOptionsPage());
 chrome.runtime.onInstalled.addListener(({ reason }) => {
@@ -30,10 +32,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
 async function summarize(rawText) {
   const settings = await getSettings();
-  if (!settings.apiKey) throw Object.assign(new Error('AI Gateway API key missing'), { code: 'NO_KEY' });
+  const provider = PROVIDERS[settings.provider] ?? PROVIDERS.ollama;
+  if (provider.requiresKey && !settings.apiKey) {
+    throw Object.assign(new Error('API key missing'), { code: 'NO_KEY' });
+  }
 
   const text = rawText.slice(0, MAX_INPUT_CHARS);
-  const key = await cacheKey(`${settings.model}|${settings.language}|${text}`);
+  const key = await cacheKey(`${settings.provider}|${settings.model}|${settings.language}|${text}`);
 
   const cached = (await chrome.storage.session.get(key))[key];
   if (cached) return cached;
@@ -53,7 +58,7 @@ async function summarize(rawText) {
   return inFlight.get(key);
 }
 
-async function requestSummary(text, { apiKey, model, language }) {
+async function requestSummary(text, { apiKey, model, language, endpoint, provider }) {
   const preset = MODELS[model] ?? {};
   const body = {
     model,
@@ -65,18 +70,37 @@ async function requestSummary(text, { apiKey, model, language }) {
     temperature: 0.3,
     stream: false,
   };
-  if (preset.reasoning) body.reasoning = preset.reasoning;
-  if (preset.order) body.providerOptions = { gateway: { order: preset.order } };
 
-  const res = await fetch(GATEWAY_URL, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(15000),
-  });
+  // Only pass gateway specific parameters if using Vercel
+  if (provider === 'vercel' || (!provider && preset.provider === 'vercel')) {
+    if (preset.reasoning) body.reasoning = preset.reasoning;
+    if (preset.order) body.providerOptions = { gateway: { order: preset.order } };
+  }
+
+  const targetUrl = endpoint || PROVIDERS[provider]?.defaultEndpoint || 'http://localhost:11434/v1/chat/completions';
+  const headers = { 'Content-Type': 'application/json' };
+  if (apiKey) {
+    headers['Authorization'] = `Bearer ${apiKey}`;
+  }
+
+  let res;
+  try {
+    res = await fetch(targetUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch (err) {
+    if (err.name === 'TimeoutError') {
+      throw new Error('LLM request timed out (15s)');
+    }
+    throw new Error(`LLM connection failed (${err.message}). Is Ollama running?`);
+  }
+
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
-    throw new Error(`Gateway ${res.status}: ${detail.slice(0, 200)}`);
+    throw new Error(`LLM Error ${res.status}: ${detail.slice(0, 200)}`);
   }
   const data = await res.json();
   const summary = data.choices?.[0]?.message?.content?.trim().replace(/^["“”']+|["“”']+$/g, '');

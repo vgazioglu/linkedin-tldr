@@ -4,24 +4,42 @@
     <meta charset="utf-8" />
     <title>LinkedIn TL;DR settings</title>
     <style>
-      body { font: 14px system-ui, sans-serif; max-width: 520px; margin: 40px auto; color: #1d2226; }
+      body { font: 14px system-ui, sans-serif; max-width: 520px; margin: 40px auto; color: #1d2226; line-height: 1.4; }
       label { display: block; margin: 16px 0 4px; font-weight: 600; }
-      input, select { width: 100%; padding: 8px; box-sizing: border-box; font: inherit; }
+      input, select { width: 100%; padding: 8px; box-sizing: border-box; font: inherit; border: 1px solid #ccc; border-radius: 4px; }
       .row { display: flex; gap: 8px; align-items: center; margin-top: 16px; }
       .row input { width: auto; }
-      button { margin-top: 20px; padding: 8px 16px; font: inherit; }
-      #status { margin-left: 8px; color: #057642; }
-      small { color: #666; }
+      .actions { margin-top: 24px; display: flex; align-items: center; gap: 10px; }
+      button { padding: 8px 16px; font: inherit; cursor: pointer; border-radius: 4px; border: 1px solid #0a66c2; background: #0a66c2; color: #fff; font-weight: 600; }
+      button.secondary { background: #fff; color: #0a66c2; }
+      #status { margin-left: 8px; font-weight: 500; }
+      #status.success { color: #057642; }
+      #status.error { color: #cc1010; }
+      small { color: #666; display: block; margin-top: 3px; }
     </style>
   </head>
   <body>
-    <h2>LinkedIn TL;DR</h2>
-    <label for="apiKey">AI Gateway API key</label>
-    <input id="apiKey" type="password" autocomplete="off" />
-    <small>Vercel dashboard → AI Gateway → API Keys</small>
+    <h2>LinkedIn TL;DR Settings</h2>
+
+    <label for="provider">Provider</label>
+    <select id="provider"></select>
+
+    <div id="endpointGroup">
+      <label for="endpoint">Endpoint URL</label>
+      <input id="endpoint" />
+      <small id="endpointHint">Default LiteLLM endpoint: http://localhost:4000/v1/chat/completions</small>
+    </div>
+
+    <div id="apiKeyGroup">
+      <label for="apiKey">API Key</label>
+      <input id="apiKey" type="password" autocomplete="off" />
+      <small id="apiKeyHint">LiteLLM master key (sk-master-key-belirleyin) or provider API key.</small>
+    </div>
 
     <label for="model">Model</label>
     <select id="model"></select>
+    <small>You can also type or edit the exact model name below:</small>
+    <input id="customModel" style="margin-top: 6px;" placeholder="e.g. qwen2.5:7b" />
 
     <label for="language">Summary language</label>
     <input id="language" />
@@ -29,9 +47,17 @@
     <label for="minChars">Summarize posts longer than (characters)</label>
     <input id="minChars" type="number" min="0" step="20" />
 
-    <div class="row"><input id="enabled" type="checkbox" /><span>Enabled</span></div>
+    <div class="row">
+      <input id="enabled" type="checkbox" />
+      <span>Enabled</span>
+    </div>
 
-    <button id="save">Save</button><span id="status"></span>
+    <div class="actions">
+      <button id="save">Save</button>
+      <button id="test" class="secondary" type="button">Test Connection</button>
+      <span id="status"></span>
+    </div>
+
     <script type="module" src="options.js"></script>
   </body>
 </html>
