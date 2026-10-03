@@ -155,22 +155,24 @@
   }
 
   function getPostMetrics(host) {
-    const card = host.closest('.feed-shared-update-v2, [data-urn], [data-id], .occludable-update, article') || host.parentElement;
+    const card = host.closest(
+      '.feed-shared-update-v2, [data-urn], [data-id], [data-activity-urn], .main-feed-activity-card-with-comments, .occludable-update, article'
+    ) || host.parentElement;
     if (!card) return { likes: 0, comments: 0, reposts: 0, score: 0 };
 
     const rxEl = card.querySelector(
-      '.social-details-social-counts__reactions-count, [data-test-id="social-actions__reactions-count"], button[aria-label*="tepki"], button[aria-label*="reaction"], button[aria-label*="beğeni"], button[aria-label*="like"]'
+      '[data-num-reactions], .social-details-social-counts__reactions-count, [data-test-id="social-actions__reaction-count"], [data-test-id="social-actions__reactions"], button[aria-label*="tepki"], button[aria-label*="reaction"], button[aria-label*="beğeni"], button[aria-label*="like"]'
     );
     const cmEl = card.querySelector(
-      '.social-details-social-counts__comments, button[aria-label*="yorum"], button[aria-label*="comment"]'
+      '[data-num-comments], .social-details-social-counts__comments, [data-test-id="social-actions__comments"], button[aria-label*="yorum"], button[aria-label*="comment"]'
     );
     const rpEl = card.querySelector(
-      'button[aria-label*="yeniden paylaşım"], button[aria-label*="repost"]'
+      '[data-num-reposts], button[aria-label*="yeniden paylaşım"], button[aria-label*="repost"], [data-test-id*="repost"]'
     );
 
-    const likes = parseCount(rxEl?.textContent || rxEl?.getAttribute('aria-label') || '');
-    const comments = parseCount(cmEl?.textContent || cmEl?.getAttribute('aria-label') || '');
-    const reposts = parseCount(rpEl?.textContent || rpEl?.getAttribute('aria-label') || '');
+    const likes = parseCount(rxEl?.getAttribute('data-num-reactions') || rxEl?.textContent || rxEl?.getAttribute('aria-label') || '');
+    const comments = parseCount(cmEl?.getAttribute('data-num-comments') || cmEl?.textContent || cmEl?.getAttribute('aria-label') || '');
+    const reposts = parseCount(rpEl?.getAttribute('data-num-reposts') || rpEl?.textContent || rpEl?.getAttribute('aria-label') || '');
     const score = (likes * 1) + (comments * 3) + (reposts * 5);
 
     return { likes, comments, reposts, score };
