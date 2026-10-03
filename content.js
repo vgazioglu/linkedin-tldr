@@ -28,7 +28,7 @@
       box-sizing: border-box;
       width: 100%;
       display: flex;
-      align-items: stretch;
+      align-items: center;
       gap: 14px;
       padding: 12px 16px;
       margin: 8px 0;
@@ -46,9 +46,9 @@
     }
     .thumb-container {
       flex-shrink: 0;
-      width: 125px;
-      height: 135px;
-      border: 1px solid rgba(0, 0, 0, 0.12);
+      width: 120px;
+      height: 85px;
+      border: 1px solid rgba(0, 0, 0, 0.1);
       border-radius: 8px;
       overflow: hidden;
       position: relative;
@@ -56,9 +56,11 @@
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
       pointer-events: none;
     }
-    .mini-scaler {
-      pointer-events: none;
-      user-select: none;
+    .thumb-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
     }
     .card-content {
       flex: 1;
@@ -362,51 +364,59 @@
     return null;
   }
 
+  function getPostThumbnail(card) {
+    if (!card) return null;
+
+    // 1. Video poster / preview
+    const videoPoster = card.querySelector('[data-poster-url]');
+    if (videoPoster) {
+      const url = videoPoster.getAttribute('data-poster-url');
+      if (url && !url.startsWith('data:')) return url;
+    }
+    const video = card.querySelector('video[poster]');
+    if (video && video.poster && !video.poster.startsWith('data:')) {
+      return video.poster;
+    }
+
+    // 2. Shared images / Articles / Content images
+    const mediaImgs = card.querySelectorAll(
+      '.feed-shared-image img, .feed-shared-article img, .update-components-image img, .update-components-article img, .share-native-video img, .feed-shared-mini-update-v2 img, article img, div[data-image-entity-type] img'
+    );
+    for (const img of mediaImgs) {
+      if (img.src && !img.src.startsWith('data:') && !img.closest('.feed-shared-actor, .feed-shared-actor__avatar')) {
+        return img.src;
+      }
+    }
+
+    // 3. Fallback: inspect any content images (excluding avatars & emoji reactions)
+    const allImgs = card.querySelectorAll('img');
+    for (const img of allImgs) {
+      if (!img.src || img.src.startsWith('data:image/svg')) continue;
+      if (img.closest('.feed-shared-actor, .feed-shared-actor__avatar, .reactions-count, .social-details-reactors-facepile, .feed-shared-social-actions, .artdeco-button')) {
+        continue;
+      }
+      if (img.naturalWidth > 80 || img.naturalHeight > 60 || img.width > 80 || img.height > 60 || (!img.width && !img.naturalWidth)) {
+        return img.src;
+      }
+    }
+
+    return null;
+  }
+
   function createPostThumbnail(card) {
     if (!card) return null;
+    const thumbUrl = getPostThumbnail(card);
+    if (!thumbUrl) return null; // Salt metin gönderilerde boş veya silüet kutu oluşturma
 
     const thumbContainer = document.createElement('div');
     thumbContainer.className = 'thumb-container';
 
-    // Orijinal gönderi kartını klonla
-    const clone = card.cloneNode(true);
-    clone.querySelectorAll('.tldr-compact-host, .tldr-viral-banner, .tldr-post-hidden').forEach((e) => {
-      if (e.classList.contains('tldr-post-hidden')) {
-        e.classList.remove('tldr-post-hidden');
-      } else {
-        e.remove();
-      }
-    });
-
-    // Küçük resim içinde video ve sesleri durdur ve sessize al
-    clone.querySelectorAll('video, audio').forEach((media) => {
-      try {
-        media.pause?.();
-        media.muted = true;
-        media.removeAttribute('autoplay');
-      } catch {}
-    });
-
-    // Klon elemanlarının görünür olduğundan emin ol
-    clone.querySelectorAll('*').forEach((el) => {
-      if (el.style.display === 'none') el.style.display = '';
-    });
-
-    const cardWidth = card.offsetWidth || 560;
-    const targetWidth = 125;
-    const scale = targetWidth / cardWidth;
-
-    const scaler = document.createElement('div');
-    scaler.className = 'mini-scaler';
-    scaler.style.cssText = `
-      width: ${cardWidth}px;
-      transform: scale(${scale});
-      transform-origin: top left;
-      pointer-events: none;
-      user-select: none;
-    `;
-    scaler.appendChild(clone);
-    thumbContainer.appendChild(scaler);
+    const img = document.createElement('img');
+    img.className = 'thumb-img';
+    img.src = thumbUrl;
+    img.alt = 'Gönderi görseli';
+    img.loading = 'lazy';
+    thumbContainer.appendChild(img);
 
     return thumbContainer;
   }
