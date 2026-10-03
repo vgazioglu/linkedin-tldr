@@ -28,71 +28,116 @@
       box-sizing: border-box;
       width: 100%;
       display: flex;
-      align-items: center;
-      gap: 14px;
+      align-items: flex-start;
+      gap: 12px;
       padding: 12px 16px;
       margin: 8px 0;
       background: var(--bg-card, #ffffff);
-      border: 2px solid var(--theme, #0a66c2);
+      border: 1.5px solid var(--theme, #0a66c2);
       border-radius: 12px;
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.06);
       cursor: pointer;
       font-family: -apple-system, system-ui, sans-serif;
       transition: box-shadow 0.2s ease, border-color 0.2s ease, padding 0.2s ease;
       color: var(--text-color, #1d2226);
     }
     .compact-card:hover {
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
     }
-    .thumb-container {
+    .avatar-col {
       flex-shrink: 0;
-      width: 120px;
-      height: 85px;
-      border: 1px solid rgba(0, 0, 0, 0.1);
-      border-radius: 8px;
-      overflow: hidden;
-      position: relative;
-      background: var(--bg-card, #ffffff);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-      pointer-events: none;
+      width: 44px;
+      height: 44px;
+      margin-top: 2px;
     }
-    .thumb-img {
-      width: 100%;
-      height: 100%;
+    .avatar-img {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
       object-fit: cover;
       display: block;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    .avatar-placeholder {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.06);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
     }
     .card-content {
       flex: 1;
       display: flex;
       flex-direction: column;
-      justify-content: center;
-      gap: 5px;
+      gap: 6px;
       min-width: 0;
+    }
+    .author-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-width: 0;
+    }
+    .author-info {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      overflow: hidden;
+      white-space: nowrap;
+      min-width: 0;
+      flex: 1;
+    }
+    .author-name {
+      font-weight: 700;
+      font-size: 13.5px;
+      color: var(--text-color, #1d2226);
+      flex-shrink: 0;
+    }
+    .author-headline {
+      color: var(--meta-color, #666);
+      font-size: 12px;
+      font-weight: 400;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+    .author-time {
+      color: var(--hint-color, #888);
+      font-size: 11.5px;
+      flex-shrink: 0;
+      white-space: nowrap;
     }
     .badge-bar {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
+      flex-shrink: 0;
     }
     .badge {
-      padding: 2px 8px;
+      padding: 2px 7px;
       border-radius: 4px;
       background: var(--theme, #0a66c2);
       color: #fff;
-      font-size: 11px;
+      font-size: 10.5px;
       font-weight: 800;
-      letter-spacing: 0.03em;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
     }
     .meta-tag {
       color: var(--meta-color, #5e6b75);
       font-size: 11px;
       font-weight: 600;
+      white-space: nowrap;
     }
     .summary-text {
       color: var(--text-color, #1d2226);
       font-size: 13.5px;
-      font-weight: 600;
+      font-weight: 500;
       line-height: 1.4;
       display: -webkit-box;
       -webkit-line-clamp: 2;
@@ -119,9 +164,12 @@
       border-width: 1px;
       margin-bottom: 8px;
       box-shadow: none;
+      align-items: center;
     }
-    .compact-card.revealed .thumb-container { display: none; }
+    .compact-card.revealed .avatar-col { display: none; }
     .compact-card.revealed .summary-text { display: none; }
+    .compact-card.revealed .author-headline { display: none; }
+    .compact-card.revealed .author-time { display: none; }
     .error {
       border-color: #f5a623;
       background: #fff4e5;
@@ -364,61 +412,79 @@
     return null;
   }
 
-  function getPostThumbnail(card) {
-    if (!card) return null;
-
-    // 1. Video poster / preview
-    const videoPoster = card.querySelector('[data-poster-url]');
-    if (videoPoster) {
-      const url = videoPoster.getAttribute('data-poster-url');
-      if (url && !url.startsWith('data:')) return url;
-    }
-    const video = card.querySelector('video[poster]');
-    if (video && video.poster && !video.poster.startsWith('data:')) {
-      return video.poster;
-    }
-
-    // 2. Shared images / Articles / Content images
-    const mediaImgs = card.querySelectorAll(
-      '.feed-shared-image img, .feed-shared-article img, .update-components-image img, .update-components-article img, .share-native-video img, .feed-shared-mini-update-v2 img, article img, div[data-image-entity-type] img'
-    );
-    for (const img of mediaImgs) {
-      if (img.src && !img.src.startsWith('data:') && !img.closest('.feed-shared-actor, .feed-shared-actor__avatar')) {
-        return img.src;
-      }
-    }
-
-    // 3. Fallback: inspect any content images (excluding avatars & emoji reactions)
-    const allImgs = card.querySelectorAll('img');
-    for (const img of allImgs) {
-      if (!img.src || img.src.startsWith('data:image/svg')) continue;
-      if (img.closest('.feed-shared-actor, .feed-shared-actor__avatar, .reactions-count, .social-details-reactors-facepile, .feed-shared-social-actions, .artdeco-button')) {
-        continue;
-      }
-      if (img.naturalWidth > 80 || img.naturalHeight > 60 || img.width > 80 || img.height > 60 || (!img.width && !img.naturalWidth)) {
-        return img.src;
-      }
-    }
-
-    return null;
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 
-  function createPostThumbnail(card) {
+  function getPostAuthorInfo(card) {
     if (!card) return null;
-    const thumbUrl = getPostThumbnail(card);
-    if (!thumbUrl) return null; // Salt metin gönderilerde boş veya silüet kutu oluşturma
+    const actor = card.querySelector(
+      '.feed-shared-actor, .update-components-actor, .feed-shared-update-v2__actor, [data-test-id*="entity-lockup"], .base-main-feed-card__entity-lockup, div[class*="actor"]'
+    ) || (card.tagName === 'ARTICLE' ? card.querySelector('.flex:has(img)') || card.children[2] : null);
 
-    const thumbContainer = document.createElement('div');
-    thumbContainer.className = 'thumb-container';
+    if (!actor) return null;
 
-    const img = document.createElement('img');
-    img.className = 'thumb-img';
-    img.src = thumbUrl;
-    img.alt = 'Gönderi görseli';
-    img.loading = 'lazy';
-    thumbContainer.appendChild(img);
+    // 1. Profil Resmi (Avatar)
+    let avatarUrl = '';
+    const avatarImg = actor.querySelector(
+      '.update-components-actor__avatar-image, .feed-shared-actor__avatar-image, .presence-entity__image, img.evi-image, img:not([src*="data:image/svg"])'
+    );
+    if (avatarImg?.src && !avatarImg.src.startsWith('data:image/svg')) {
+      avatarUrl = avatarImg.src;
+    }
 
-    return thumbContainer;
+    // 2. Gönderen Kişi / Kurum Adı
+    let name = '';
+    const nameEl = actor.querySelector(
+      '.update-components-actor__name, .feed-shared-actor__name, [class*="actor__name"], [class*="actor__title"], a[data-tracking-control-name*="actor"], a[href*="/in/"], a[href*="/company/"]'
+    );
+    if (nameEl) {
+      const visual = nameEl.querySelector('[aria-hidden="true"]');
+      name = (visual ? visual.innerText : nameEl.innerText || '').trim();
+      name = name.split('\n')[0].replace(/•.*$/, '').trim();
+    }
+
+    // 3. Ünvan / Açıklama / Şirket
+    let headline = '';
+    const descEl = actor.querySelector(
+      '.update-components-actor__description, .feed-shared-actor__description, [class*="actor__description"]'
+    );
+    if (descEl) {
+      const visual = descEl.querySelector('[aria-hidden="true"]');
+      headline = (visual ? visual.innerText : descEl.innerText || '').trim().replace(/\s+/g, ' ');
+    }
+
+    // 4. Gönderi Zamanı (kaç saat/gün önce)
+    let timeAgo = '';
+    const subDescEl = actor.querySelector(
+      '.update-components-actor__sub-description, .feed-shared-actor__sub-description, [class*="actor__sub-description"], time'
+    );
+    if (subDescEl) {
+      const visual = subDescEl.querySelector('[aria-hidden="true"]');
+      const raw = (visual ? visual.innerText : subDescEl.innerText || '').trim();
+      const parts = raw.split('•').map(p => p.trim()).filter(p => p && !p.includes('🌐') && !p.includes('Public') && !p.includes('Herkese açık') && !p.includes('Düzenlendi') && !p.includes('Edited'));
+      timeAgo = parts[0] || '';
+    }
+
+    // Fallback: spesifik sınıflar bulunamazsa satırlardan ayrıştır
+    if (!name || !headline) {
+      const lines = actor.innerText.split('\n').map(s => s.trim()).filter(Boolean);
+      if (!name && lines[0]) name = lines[0];
+      if (!headline && lines[1] && !lines[1].includes('takipçi') && !lines[1].includes('followers')) {
+        headline = lines[1];
+      }
+      if (!timeAgo && lines[2]) {
+        timeAgo = lines[2].split('•')[0].trim();
+      }
+    }
+
+    return { actor, avatarUrl, name, headline, timeAgo };
   }
 
   function findPostMedia(card, section) {
@@ -436,10 +502,12 @@
     const hintEl = post.shadow.querySelector('.hint');
 
     if (post.revealed) {
+      if (post.actor) post.actor.classList.remove('tldr-post-hidden');
       post.section.classList.remove('tldr-post-hidden');
       if (post.media) post.media.classList.remove('tldr-post-hidden');
       if (hintEl) hintEl.textContent = 'Gönderiyi özet kartına daralt ▴';
     } else {
+      if (post.actor) post.actor.classList.add('tldr-post-hidden');
       post.section.classList.add('tldr-post-hidden');
       if (post.media) post.media.classList.add('tldr-post-hidden');
       if (hintEl) hintEl.textContent = 'Orijinal gönderiyi açmak için tıkla ▾';
@@ -447,6 +515,7 @@
   }
 
   function teardown(post) {
+    if (post.actor) post.actor.classList.remove('tldr-post-hidden');
     post.section.classList.remove('tldr-post-hidden');
     if (post.media) post.media.classList.remove('tldr-post-hidden');
     post.container.remove();
@@ -514,17 +583,39 @@
     const metaColor = isDark ? '#8b949e' : '#5e6b75';
     const hintColor = isDark ? '#8b949e' : '#777777';
 
+    const author = getPostAuthorInfo(card);
+    const actorEl = author?.actor;
+
+    const avatarHtml = author?.avatarUrl
+      ? `<img class="avatar-img" src="${escapeHtml(author.avatarUrl)}" alt="${escapeHtml(author.name || '')}" />`
+      : `<div class="avatar-placeholder">👤</div>`;
+
+    const authorName = author?.name || 'LinkedIn Kullanıcısı';
+    const headlineHtml = author?.headline
+      ? `<span class="author-headline" title="${escapeHtml(author.headline)}">• ${escapeHtml(author.headline)}</span>`
+      : '';
+    const timeHtml = author?.timeAgo
+      ? `<span class="author-time">• ${escapeHtml(author.timeAgo)}</span>`
+      : '';
+
     const container = document.createElement('div');
     container.className = 'tldr-compact-host';
     const shadow = container.attachShadow({ mode: 'open' });
     shadow.innerHTML = `
       <style>${STAMP_CSS}</style>
       <div class="compact-card loading" style="--theme: ${info.themeColor}; --bg-card: ${bgCard}; --text-color: ${textColor}; --meta-color: ${metaColor}; --hint-color: ${hintColor};" title="Orijinal gönderiyi göster / gizle">
-        <div class="card-thumb-slot"></div>
+        <div class="avatar-col">${avatarHtml}</div>
         <div class="card-content">
-          <div class="badge-bar">
-            <span class="badge">${info.badge}</span>
-            ${info.metaText ? `<span class="meta-tag">${info.metaText}</span>` : ''}
+          <div class="author-header">
+            <div class="author-info">
+              <span class="author-name">${escapeHtml(authorName)}</span>
+              ${headlineHtml}
+              ${timeHtml}
+            </div>
+            <div class="badge-bar">
+              <span class="badge">${info.badge}</span>
+              ${info.metaText ? `<span class="meta-tag">${info.metaText}</span>` : ''}
+            </div>
           </div>
           <div class="summary-text"></div>
           <div class="hint">Orijinal gönderiyi açmak için tıkla ▾</div>
@@ -533,21 +624,19 @@
     `;
 
     const compactCard = shadow.querySelector('.compact-card');
-    const thumbSlot = shadow.querySelector('.card-thumb-slot');
-    const postThumb = createPostThumbnail(card);
-    if (postThumb && thumbSlot) {
-      thumbSlot.replaceWith(postThumb);
-    } else if (thumbSlot) {
-      thumbSlot.remove();
+
+    if (actorEl) {
+      actorEl.before(container);
+      actorEl.classList.add('tldr-post-hidden');
+    } else {
+      section.before(container);
     }
 
-    section.before(container);
-
-    // Orijinal metni ve medyayı gizle (yerine kompakt thumbnail kartı geçer)
+    // Orijinal metni ve medyayı gizle (yerine kompakt özet kartı geçer)
     section.classList.add('tldr-post-hidden');
     if (media) media.classList.add('tldr-post-hidden');
 
-    const post = { section, media, container, compactCard, shadow, revealed: false };
+    const post = { section, media, actor: actorEl, container, compactCard, shadow, revealed: false };
     posts.set(section, post);
 
     compactCard.onclick = (e) => {
