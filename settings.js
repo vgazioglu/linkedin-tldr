@@ -96,7 +96,7 @@ export const DEFAULTS = {
   apiKey: 'sk-master-key-belirleyin',
   model: 'local-qwen2.5-coder-7b',
   language: 'Turkish',
-  minChars: 400,
+  minChars: 280,
   enabled: true,
 };
 

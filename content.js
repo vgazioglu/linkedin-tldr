@@ -6,6 +6,9 @@
     '.feed-shared-inline-show-more-text',
     '[data-view-name="feed-commentary"]',
     '[data-testid="expandable-text-box"]',
+    '.attributed-text-segment-list__container',
+    '.feed-shared-text',
+    '.update-components-text',
   ].join(',');
 
   // Start summarizing well before the post scrolls into view so it's ready on arrival.
@@ -73,7 +76,7 @@
     }
   `;
 
-  let minChars = 400;
+  let minChars = 280;
   let noKeyShown = false;
   const posts = new WeakMap(); // anchor element -> post state
 
@@ -96,11 +99,21 @@
     }
   });
 
-  const isTopLevel = (el) => !el.parentElement?.closest(POST_TEXT_SELECTOR);
+  const isPostCommentary = (el) => {
+    // 1. Yorumların (comments) içindeki metinleri hariç tut
+    if (el.closest('.comment, [class*="comment__"], .comments-comments-list, .comments-comment-item, section.comment')) {
+      return false;
+    }
+    // 2. İç içe geçmiş post metinlerini ele
+    if (el.parentElement?.closest(POST_TEXT_SELECTOR)) {
+      return false;
+    }
+    return true;
+  };
 
   function scan() {
     for (const el of document.querySelectorAll(POST_TEXT_SELECTOR)) {
-      if (el.dataset.tldr || !isTopLevel(el)) continue;
+      if (el.dataset.tldr || !isPostCommentary(el)) continue;
       el.dataset.tldr = 'seen';
       io.observe(el);
     }
@@ -156,13 +169,13 @@
 
   function getPostMetrics(host) {
     const card = host.closest(
-      '.feed-shared-update-v2, [data-urn], [data-id], [data-activity-urn], .main-feed-activity-card-with-comments, .occludable-update, article, .feed-shared-update'
+      '.feed-shared-update-v2, [data-urn], [data-id], [data-activity-urn], .main-feed-activity-card, .main-feed-activity-card-with-comments, .occludable-update, article, .feed-shared-update'
     ) || host.parentElement?.parentElement;
     if (!card) return { likes: 0, comments: 0, reposts: 0, score: 0 };
 
     let likes = 0, comments = 0, reposts = 0;
 
-    // 1. Doğrudan data-num niteliklerinden oku
+    // 1. Doğrudan data-num niteliklerinden oku (data-num-reactions, data-num-comments, data-num-reposts)
     const numRx = card.querySelector('[data-num-reactions]');
     if (numRx) likes = parseCount(numRx.getAttribute('data-num-reactions'));
     const numCm = card.querySelector('[data-num-comments]');
@@ -170,7 +183,17 @@
     const numRp = card.querySelector('[data-num-reposts]');
     if (numRp) reposts = parseCount(numRp.getAttribute('data-num-reposts'));
 
-    // 2. Sosyal sayaç barı metninden oku (.social-details-social-counts)
+    // 2. data-test-id elemanlarından oku
+    if (!likes) {
+      const rxEl = card.querySelector('[data-test-id="social-actions__reaction-count"], .social-details-social-counts__reactions-count, [class*="reactions-count"]');
+      if (rxEl) likes = parseCount(rxEl.textContent);
+    }
+    if (!comments) {
+      const cmEl = card.querySelector('[data-test-id="social-actions__comments"], .social-details-social-counts__comments');
+      if (cmEl) comments = parseCount(cmEl.textContent);
+    }
+
+    // 3. Sosyal sayaç barı metninden oku (.social-details-social-counts)
     const countsBar = card.querySelector('.social-details-social-counts, [class*="social-counts"], [class*="social-actions"]');
     if (countsBar) {
       const barText = countsBar.textContent || '';
@@ -190,22 +213,27 @@
           '.social-details-social-counts__reactions-count, [class*="reactions-count"], [data-test-id*="reaction-count"]'
         );
         if (rxEl) likes = parseCount(rxEl.textContent);
+        else {
+          const rxMatch = barText.match(/([\d.,]+(?:\s*[kmb])?)\s*(?:tepki|reaction|beğeni|like)/i);
+          if (rxMatch) likes = parseCount(rxMatch[1]);
+        }
       }
     }
 
-    // 3. Buton ve Linklerin aria-label / text içeriklerini tara
+    // 4. Buton ve Linklerin aria-label / text içeriklerini tara
     if (!likes || !comments || !reposts) {
       for (const el of card.querySelectorAll('button, a')) {
         const aria = (el.getAttribute('aria-label') || '').toLowerCase();
         const text = (el.textContent || '').trim().toLowerCase();
+        const combined = aria + ' ' + text;
 
-        if (!likes && (aria.includes('tepki') || aria.includes('reaction') || aria.includes('beğen') || aria.includes('like'))) {
+        if (!likes && (combined.includes('tepki') || combined.includes('reaction') || combined.includes('beğen') || combined.includes('like'))) {
           likes = parseCount(aria || text);
         }
-        if (!comments && (aria.includes('yorum') || aria.includes('comment') || text.includes('yorum') || text.includes('comment'))) {
+        if (!comments && (combined.includes('yorum') || combined.includes('comment'))) {
           comments = parseCount(aria || text);
         }
-        if (!reposts && (aria.includes('repost') || aria.includes('paylaşım') || text.includes('repost') || text.includes('paylaşım'))) {
+        if (!reposts && (combined.includes('repost') || combined.includes('paylaşım'))) {
           reposts = parseCount(aria || text);
         }
       }
@@ -219,8 +247,8 @@
     const { likes, comments, reposts, score } = metrics;
 
     // Gerçekçi eşikler (Kişisel akış ortamı için optimize edildi):
-    // 🚀 VİRAL: 200+ beğeni veya 25+ yorum veya 300+ skor
-    if (likes >= 200 || comments >= 25 || score >= 300) {
+    // 🚀 VİRAL: 150+ beğeni veya 20+ yorum veya 250+ skor
+    if (likes >= 150 || comments >= 20 || score >= 250) {
       return {
         level: 'VIRAL',
         badge: '🚀 VİRAL',
@@ -229,8 +257,8 @@
       };
     }
 
-    // 🔥 BAŞARILI: 40+ beğeni veya 6+ yorum veya 60+ skor
-    if (likes >= 40 || comments >= 6 || score >= 60) {
+    // 🔥 BAŞARILI: 30+ beğeni veya 5+ yorum veya 50+ skor
+    if (likes >= 30 || comments >= 5 || score >= 50) {
       return {
         level: 'POPULAR',
         badge: '🔥 BAŞARILI',
@@ -240,7 +268,7 @@
     }
 
     // 💬 TARTIŞMA: Yorum sayısı belirgin olanlar
-    if (comments >= 6 && (comments / (likes || 1)) >= 0.12) {
+    if (comments >= 5 && (comments / (likes || 1)) >= 0.10) {
       return {
         level: 'DISCUSSION',
         badge: '💬 TARTIŞMA',
@@ -340,8 +368,12 @@
     post.anchor.classList.remove('tldr-anchor');
   }
 
+  const MIN_CLAMPED_CHARS = 100;
+
   function isClamped(el) {
-    const more = el.querySelector('[data-testid="expandable-text-button"]');
+    const more = el.querySelector(
+      '[data-testid="expandable-text-button"], .attributed-text-segment-list__btn-truncation, button[class*="see-more"], button[class*="show-more"], button[class*="more"]'
+    );
     return (more && more.getClientRects().length > 0) || el.scrollHeight > el.clientHeight + 2;
   }
 
@@ -349,11 +381,19 @@
     const text = postText(host);
     const pureText = extractPureText(text);
 
-    // Kriter: Saf metin (linkler, hashtagler ve emojiler hariç) en az minChars (400) karakter olmalı
-    if (pureText.length < minChars) return;
-
     const metrics = getPostMetrics(host);
     const info = classifyPost(metrics);
+    const isHighInteraction = info.level !== 'NORMAL';
+
+    // Şartlar:
+    // 1. Saf metin uzunluğu minChars (280) veya üzerindeyse, VEYA
+    // 2. LinkedIn tarafından "…more" ile kısaltılmışsa ve en az 100 karakterse, VEYA
+    // 3. Viral veya Başarılı bir gönderiyse ve en az 80 karakter metin içeriyorsa
+    const qualifiesByLength = pureText.length >= minChars;
+    const qualifiesByClamp = isClamped(host) && pureText.length >= MIN_CLAMPED_CHARS;
+    const qualifiesByViral = isHighInteraction && pureText.length >= 80;
+
+    if (!qualifiesByLength && !qualifiesByClamp && !qualifiesByViral) return;
 
     const section = textSection(host);
     const anchor = section.parentElement;
@@ -461,7 +501,7 @@
     true,
   );
 
-  function applySettings({ enabled = true, minChars: min = 400 }) {
+  function applySettings({ enabled = true, minChars: min = 280 }) {
     minChars = min;
     document.documentElement.classList.toggle('tldr-off', !enabled);
   }
