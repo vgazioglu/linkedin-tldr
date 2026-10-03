@@ -20,65 +20,117 @@
   const MEDIA_SIBLING_LOOKAHEAD = 3;
 
   const STAMP_CSS = `
-    .stamp {
-      position: absolute; top: 50%; left: 50%; box-sizing: border-box;
-      width: 400px; max-width: 90%;
-      display: flex; flex-direction: column; align-items: center; gap: 8px;
-      padding: 14px 18px; border: 2px solid var(--theme, #0a66c2);
-      border-radius: 10px; background: rgba(255, 255, 255, 0.97); color: #1d2226;
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
-      font: 500 14px/1.45 -apple-system, system-ui, sans-serif; text-align: center;
-      transform: translate(-50%, -50%);
-      cursor: pointer; pointer-events: auto;
-      transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    :host {
+      display: block;
+      width: 100%;
     }
-    .stamp:hover {
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    .compact-card {
+      box-sizing: border-box;
+      width: 100%;
+      display: flex;
+      align-items: stretch;
+      gap: 14px;
+      padding: 12px 16px;
+      margin: 8px 0;
+      background: var(--bg-card, #ffffff);
+      border: 2px solid var(--theme, #0a66c2);
+      border-radius: 12px;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+      cursor: pointer;
+      font-family: -apple-system, system-ui, sans-serif;
+      transition: box-shadow 0.2s ease, border-color 0.2s ease, padding 0.2s ease;
+      color: var(--text-color, #1d2226);
+    }
+    .compact-card:hover {
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+    }
+    .thumb-container {
+      flex-shrink: 0;
+      width: 110px;
+      height: 82px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #eef3f8;
+    }
+    .thumb-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .card-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 5px;
+      min-width: 0;
     }
     .badge-bar {
-      display: flex; gap: 8px; align-items: center; justify-content: center;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     .badge {
-      padding: 3px 9px; border-radius: 4px; background: var(--theme, #0a66c2); color: #fff;
-      font-size: 11px; font-weight: 800; letter-spacing: 0.04em;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--theme, #0a66c2);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.03em;
     }
     .meta-tag {
-      font-size: 11px; font-weight: 600; color: #5e6b75;
+      color: var(--meta-color, #5e6b75);
+      font-size: 11px;
+      font-weight: 600;
     }
     .summary-text {
-      color: #1d2226; font-size: 14px; font-weight: 600; line-height: 1.45;
+      color: var(--text-color, #1d2226);
+      font-size: 13.5px;
+      font-weight: 600;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
     .hint {
-      font-size: 11px; color: #777; font-weight: 400; margin-top: 2px;
+      color: var(--hint-color, #777);
+      font-size: 11px;
+      font-weight: 500;
     }
-    .loading { width: 180px; border-color: #c9c9c9; }
-    .loading .badge { background: #b5b5b5; }
-    .loading .hint { display: none; }
     .loading .summary-text {
-      width: 100%; height: 10px; border-radius: 4px;
+      width: 100%;
+      height: 14px;
+      border-radius: 4px;
       background: linear-gradient(90deg, #e3e3e3 25%, #f5f5f5 50%, #e3e3e3 75%);
-      background-size: 200% 100%; animation: shimmer 1s linear infinite;
+      background-size: 200% 100%;
+      animation: shimmer 1s linear infinite;
     }
-    .slam { animation: slam 0.32s cubic-bezier(0.16, 1, 0.3, 1) both; }
-    .revealed, .error {
-      top: 6px; right: 8px; left: auto; width: auto; max-width: none;
-      padding: 0; border: 0; background: none; box-shadow: none; transform: none; animation: none;
+    .compact-card.revealed {
+      padding: 6px 12px;
+      background: rgba(0, 0, 0, 0.02);
+      border-style: dashed;
+      border-width: 1px;
+      margin-bottom: 8px;
+      box-shadow: none;
     }
-    .revealed .summary-text, .revealed .meta-tag, .revealed .hint { display: none; }
-    .revealed .badge { opacity: 0.85; }
-    .revealed .badge:hover { opacity: 1; }
-    .error { padding: 4px 8px; border: 1px solid #f5a623; background: #fff4e5; color: #1d2226; font-weight: 500; border-radius: 4px; }
-    .error .badge { background: #f5a623; }
+    .compact-card.revealed .thumb-container { display: none; }
+    .compact-card.revealed .summary-text { display: none; }
+    .error {
+      border-color: #f5a623;
+      background: #fff4e5;
+    }
+    .error .badge {
+      background: #f5a623;
+    }
     @keyframes shimmer { to { background-position: -200% 0; } }
-    @keyframes slam {
-      0% { opacity: 0; transform: translate(-50%, -68%) scale(0.95); }
-      100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-    }
   `;
 
   let minChars = 280;
   let noKeyShown = false;
-  const posts = new WeakMap(); // anchor element -> post state
+  const posts = new WeakMap(); // section element -> post state
 
   const io = new IntersectionObserver(
     (entries) => {
@@ -91,13 +143,6 @@
     // New LinkedIn scrolls `main#workspace`, not the page; scrollMargin extends the prefetch zone into it.
     { rootMargin: PREFETCH_MARGIN, scrollMargin: PREFETCH_MARGIN },
   );
-
-  const ro = new ResizeObserver((entries) => {
-    for (const entry of entries) {
-      const post = posts.get(entry.target);
-      if (post) layout(post);
-    }
-  });
 
   const isPostCommentary = (el) => {
     // 1. Yorumların (comments) içindeki metinleri hariç tut
@@ -315,57 +360,74 @@
     return null;
   }
 
-  // Veil covers text section (+ media below it); a spacer grows short regions so the stamp fits.
-  function layout(post) {
-    const { section, anchor, spacer, veil } = post;
-    if (!section.isConnected) return;
-    const end = post.revealed ? section : (mediaSection(section, spacer) ?? section);
-    if (end.nextElementSibling !== spacer) end.after(spacer);
+  function getPostThumbnail(card) {
+    if (!card) return null;
 
-    const a = anchor.getBoundingClientRect();
-    const sectionTop = box(section).top;
-    const top = sectionTop - a.top - anchor.clientTop;
-    const contentHeight = box(end).bottom - sectionTop;
-    const spacerHeight = post.revealed ? 0 : Math.max(0, Math.ceil(MIN_VEIL_HEIGHT - contentHeight));
-
-    setPx(spacer, 'height', spacerHeight);
-    setPx(veil, 'top', top);
-    setPx(veil, 'height', post.revealed ? 0 : contentHeight + spacerHeight);
-  }
-
-  // LinkedIn wraps media in `display: contents` divs whose own rect is 0x0; measure their content instead.
-  function box(el) {
-    const r = el.getBoundingClientRect();
-    if (r.height > 0) return r;
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    return range.getBoundingClientRect();
-  }
-
-  function setPx(el, prop, value) {
-    const v = `${Math.round(value)}px`;
-    if (el.style.getPropertyValue(prop) !== v) el.style.setProperty(prop, v, 'important');
-  }
-
-  function setRevealed(post, revealed) {
-    post.revealed = revealed;
-    post.veil.classList.toggle('tldr-revealed', revealed);
-    post.stamp.classList.toggle('revealed', revealed);
-    // Re-hiding replays the slam.
-    post.stamp.classList.remove('slam');
-    if (!revealed) {
-      void post.stamp.offsetWidth;
-      post.stamp.classList.add('slam');
+    // 1. Video poster check
+    const videoPosterEl = card.querySelector('[data-poster-url]');
+    if (videoPosterEl) {
+      const u = videoPosterEl.getAttribute('data-poster-url');
+      if (u) return u;
     }
-    layout(post);
+    const video = card.querySelector('video[poster]');
+    if (video?.poster) return video.poster;
+
+    // 2. Article / Link preview images
+    const articleImg = card.querySelector(
+      '.feed-shared-article__image img, .feed-shared-external-v2__image img, [data-test-id*="article-image"] img'
+    );
+    if (articleImg?.src) return articleImg.src;
+
+    // 3. Post images (excluding avatars, emojis, and reactions)
+    const imgs = card.querySelectorAll('img');
+    for (const img of imgs) {
+      const src = img.src || img.getAttribute('data-delayed-url') || '';
+      if (!src || src.startsWith('data:image/svg')) continue;
+
+      if (img.closest('.feed-shared-actor, [class*="actor"], .comments-post-meta, [class*="avatar"], .presence-entity, [class*="reaction"], [class*="icon"]')) {
+        continue;
+      }
+
+      const w = img.naturalWidth || img.clientWidth || img.getBoundingClientRect().width;
+      const h = img.naturalHeight || img.clientHeight || img.getBoundingClientRect().height;
+      if (w > 0 && (w < 80 || h < 60)) continue;
+
+      return src;
+    }
+
+    return null;
+  }
+
+  function findPostMedia(card, section) {
+    if (!card) return null;
+    const media = card.querySelector(
+      '.share-native-video, .feed-shared-image, .feed-shared-update-v2__content, .update-components-image, .update-components-video, .update-components-linkedin-video, .feed-shared-article'
+    );
+    if (media && !media.contains(section)) return media;
+    return mediaSection(section);
+  }
+
+  function togglePost(post) {
+    post.revealed = !post.revealed;
+    post.compactCard.classList.toggle('revealed', post.revealed);
+    const hintEl = post.shadow.querySelector('.hint');
+
+    if (post.revealed) {
+      post.section.classList.remove('tldr-post-hidden');
+      if (post.media) post.media.classList.remove('tldr-post-hidden');
+      if (hintEl) hintEl.textContent = 'Gönderiyi özet kartına daralt ▴';
+    } else {
+      post.section.classList.add('tldr-post-hidden');
+      if (post.media) post.media.classList.add('tldr-post-hidden');
+      if (hintEl) hintEl.textContent = 'Orijinal gönderiyi açmak için tıkla ▾';
+    }
   }
 
   function teardown(post) {
-    ro.unobserve(post.anchor);
-    posts.delete(post.anchor);
-    post.veil.remove();
-    post.spacer.remove();
-    post.anchor.classList.remove('tldr-anchor');
+    post.section.classList.remove('tldr-post-hidden');
+    if (post.media) post.media.classList.remove('tldr-post-hidden');
+    post.container.remove();
+    posts.delete(post.section);
   }
 
   const MIN_CLAMPED_CHARS = 100;
@@ -413,39 +475,62 @@
     }
 
     // 2. Uzun veya "daha fazla gör" ile kısaltılmış gönderiler:
-    // Normal TL;DR veya Viral/Başarılı TL;DR kartı ile özetlenir.
+    const card = host.closest(
+      '.feed-shared-update-v2, [data-urn], [data-id], [data-activity-urn], .main-feed-activity-card, .main-feed-activity-card-with-comments, .occludable-update, article, .feed-shared-update'
+    ) || host.parentElement?.parentElement;
+
     const section = textSection(host);
-    const anchor = section.parentElement;
-    if (!anchor) return;
-    if (getComputedStyle(anchor).position === 'static') anchor.classList.add('tldr-anchor');
+    const media = findPostMedia(card, section);
+    const thumbUrl = getPostThumbnail(card);
 
-    const spacer = document.createElement('div');
-    spacer.className = 'tldr-spacer';
-    const veil = document.createElement('div');
-    veil.className = 'tldr-veil';
-    const shadow = veil.attachShadow({ mode: 'open' });
-    shadow.innerHTML =
-      `<style>${STAMP_CSS}</style>` +
-      `<div class="stamp loading" style="--theme: ${info.themeColor};" title="Orijinal gönderiyi göster / gizle">` +
-        `<div class="badge-bar">` +
-          `<span class="badge">${info.badge}</span>` +
-          (info.metaText ? `<span class="meta-tag">${info.metaText}</span>` : '') +
-        `</div>` +
-        `<div class="summary-text"></div>` +
-        `<div class="hint">Orijinal metni açmak için tıkla</div>` +
-      `</div>`;
-    const stamp = shadow.querySelector('.stamp');
-    anchor.append(veil);
+    const isDark = document.documentElement.classList.contains('theme--dark') ||
+      document.body?.classList.contains('theme--dark') ||
+      window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-    const post = { section, anchor, spacer, veil, stamp, revealed: false };
-    posts.set(anchor, post);
-    veil.addEventListener('click', (e) => {
+    const bgCard = isDark ? '#1b1f23' : '#ffffff';
+    const textColor = isDark ? '#e1e4e8' : '#1d2226';
+    const metaColor = isDark ? '#8b949e' : '#5e6b75';
+    const hintColor = isDark ? '#8b949e' : '#777777';
+
+    const container = document.createElement('div');
+    container.className = 'tldr-compact-host';
+    const shadow = container.attachShadow({ mode: 'open' });
+    shadow.innerHTML = `
+      <style>${STAMP_CSS}</style>
+      <div class="compact-card loading" style="--theme: ${info.themeColor}; --bg-card: ${bgCard}; --text-color: ${textColor}; --meta-color: ${metaColor}; --hint-color: ${hintColor};" title="Orijinal gönderiyi göster / gizle">
+        ${thumbUrl ? `
+          <div class="thumb-container">
+            <img class="thumb-img" src="${thumbUrl}" alt="" />
+          </div>
+        ` : ''}
+        <div class="card-content">
+          <div class="badge-bar">
+            <span class="badge">${info.badge}</span>
+            ${info.metaText ? `<span class="meta-tag">${info.metaText}</span>` : ''}
+          </div>
+          <div class="summary-text"></div>
+          <div class="hint">Orijinal gönderiyi açmak için tıkla ▾</div>
+        </div>
+      </div>
+    `;
+
+    const compactCard = shadow.querySelector('.compact-card');
+    section.before(container);
+
+    // Orijinal metni ve medyayı gizle (yerine kompakt thumbnail kartı geçer)
+    section.classList.add('tldr-post-hidden');
+    if (media) media.classList.add('tldr-post-hidden');
+
+    const post = { section, media, container, compactCard, shadow, revealed: false };
+    posts.set(section, post);
+
+    compactCard.onclick = (e) => {
       e.stopPropagation();
       e.preventDefault();
-      if (!stamp.classList.contains('loading')) setRevealed(post, !post.revealed);
-    });
-    layout(post);
-    ro.observe(anchor);
+      if (!compactCard.classList.contains('loading')) {
+        togglePost(post);
+      }
+    };
 
     let res;
     try {
@@ -454,18 +539,20 @@
       res = { ok: false, error: String(err) };
     }
 
-    stamp.classList.remove('loading');
+    compactCard.classList.remove('loading');
     if (res?.ok) {
+      const summaryEl = shadow.querySelector('.summary-text');
+      if (summaryEl) summaryEl.textContent = res.summary;
+
       // Gönderi ekrana yaklaştığında metrikleri tekrar tara ve rozeti güncelle
       const freshMetrics = getPostMetrics(host);
       const freshInfo = classifyPost(freshMetrics);
-
-      stamp.style.setProperty('--theme', freshInfo.themeColor);
-      const badgeEl = stamp.querySelector('.badge');
+      compactCard.style.setProperty('--theme', freshInfo.themeColor);
+      const badgeEl = shadow.querySelector('.badge');
       if (badgeEl) badgeEl.textContent = freshInfo.badge;
 
-      const badgeBar = stamp.querySelector('.badge-bar');
-      let metaEl = stamp.querySelector('.meta-tag');
+      const badgeBar = shadow.querySelector('.badge-bar');
+      let metaEl = shadow.querySelector('.meta-tag');
       if (freshInfo.metaText) {
         if (!metaEl && badgeBar) {
           metaEl = document.createElement('span');
@@ -477,48 +564,32 @@
         metaEl.remove();
       }
 
-      const summaryEl = stamp.querySelector('.summary-text');
-      if (summaryEl) summaryEl.textContent = res.summary;
-      stamp.classList.add('slam');
-      veil.classList.add('tldr-shake');
-
       console.log('[LinkedIn TL;DR]', {
         pureLen: pureText.length,
         metrics: freshMetrics,
         level: freshInfo.level,
         badge: freshInfo.badge,
+        hasThumb: !!thumbUrl,
       });
       return;
     }
 
     if (res?.code === 'NO_KEY' && !noKeyShown) {
       noKeyShown = true;
-      post.revealed = true;
-      veil.classList.add('tldr-revealed');
-      stamp.classList.add('error');
-      const summaryEl = stamp.querySelector('.summary-text');
+      togglePost(post);
+      compactCard.classList.add('error');
+      const summaryEl = shadow.querySelector('.summary-text');
       if (summaryEl) summaryEl.textContent = 'Configure LLM provider in settings';
-      veil.onclick = (e) => {
+      compactCard.onclick = (e) => {
         e.stopPropagation();
         chrome.runtime.sendMessage({ type: 'openOptions' });
       };
-      layout(post);
       return;
     }
+
     if (res?.code !== 'NO_KEY') console.warn('[LinkedIn TL;DR]', res?.error);
     teardown(post);
   }
-
-  // Images load after we lay out; re-measure so the veil stretches over them.
-  document.addEventListener(
-    'load',
-    (e) => {
-      const anchor = e.target instanceof Element && e.target.closest('.tldr-anchor, :has(> .tldr-veil)');
-      const post = anchor && posts.get(anchor);
-      if (post) layout(post);
-    },
-    true,
-  );
 
   function applySettings({ enabled = true, minChars: min = 280 }) {
     minChars = min;

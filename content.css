@@ -11,6 +11,10 @@
   border: 0 !important;
 }
 
+.tldr-post-hidden {
+  display: none !important;
+}
+
 /* Blurs whatever is behind it (text nodes, images, video) regardless of LinkedIn's DOM. */
 .tldr-veil {
   position: absolute !important;
