@@ -5,8 +5,8 @@ const inFlight = new Map();
 
 const systemPrompt = (language) =>
   `You summarize LinkedIn posts. Regardless of what language the original post is written in (especially if English), ALWAYS translate and write the summary in ${language}. ` +
-  `Reply with exactly ONE concise plain sentence in ${language} (at most 20 words) stating what happened, claimed, or sold. ` +
-  `Drop motivational fluff, hashtags, emojis and calls to action. ` +
+  `Reply with strictly ONE concise, complete plain sentence in ${language} (maximum 20 words) stating what happened, claimed, or sold. ` +
+  `Never write a second sentence. Drop motivational fluff, hashtags, emojis and calls to action. ` +
   `If the post is engagement bait or a humblebrag, say so plainly. No preamble, no quotes, no markdown.\n\n` +
   `Example:\n` +
   `Post: I am excited to announce our company raised $10M from investors! We are also hiring designers.\n` +
@@ -58,6 +58,26 @@ async function summarize(rawText) {
   return inFlight.get(key);
 }
 
+// Cümlenin ortadan kesilmesini engelleyen ve sadece ilk tam cümleyi alan emniyet fonksiyonu
+function extractSingleSentence(raw) {
+  if (!raw) return '';
+  let text = raw.trim().replace(/^["“”`\x27]+|["“”`\x27]+$/g, '').trim();
+
+  // Model birden fazla cümle yazdıysa, ilk tam cümlenin sonunu (. ! ?) bulup sonrasını atar
+  // Sayı (1.5) veya kısaltmaları (A.Ş.) korumak için cümlenin büyük harfle başlamasını kontrol eder
+  const multiSentenceMatch = text.match(/^(.*?[.!?])(?:\s+[A-ZÇĞİÖŞÜ]|\s*$)/s);
+  if (multiSentenceMatch && multiSentenceMatch[1].length >= 15) {
+    return multiSentenceMatch[1].trim();
+  }
+
+  const simpleMatch = text.match(/^(.*?[.!?])(?:\s+|$)/s);
+  if (simpleMatch && simpleMatch[1].length >= 15) {
+    return simpleMatch[1].trim();
+  }
+
+  return text;
+}
+
 async function requestSummary(text, { apiKey, model, language, endpoint, provider }) {
   const preset = MODELS[model] ?? {};
   const body = {
@@ -66,7 +86,7 @@ async function requestSummary(text, { apiKey, model, language, endpoint, provide
       { role: 'system', content: systemPrompt(language) },
       { role: 'user', content: text },
     ],
-    max_tokens: 400,
+    max_tokens: 90, // Güvenli tampon: Cümleyi yarım bırakmaz, ama uzatmasına da izin vermez
     temperature: 0.3,
     stream: false,
   };
@@ -103,7 +123,8 @@ async function requestSummary(text, { apiKey, model, language, endpoint, provide
     throw new Error(`LLM Error ${res.status}: ${detail.slice(0, 200)}`);
   }
   const data = await res.json();
-  const summary = data.choices?.[0]?.message?.content?.trim().replace(/^["“”']+|["“”']+$/g, '');
+  const rawContent = data.choices?.[0]?.message?.content ?? '';
+  const summary = extractSingleSentence(rawContent);
   if (!summary) throw new Error('Empty summary');
   return summary;
 }
