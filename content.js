@@ -32,13 +32,13 @@
       gap: 12px;
       padding: 12px 16px;
       margin: 8px 0;
-      background: var(--bg-card, #ffffff);
+      background: var(--bg-card, #f4f6f8);
       border: 1.5px solid var(--theme, #0a66c2);
       border-radius: 12px;
-      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.06);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
       cursor: pointer;
       font-family: -apple-system, system-ui, sans-serif;
-      transition: box-shadow 0.2s ease, border-color 0.2s ease, padding 0.2s ease;
+      transition: box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease, padding 0.2s ease;
       color: var(--text-color, #1d2226);
     }
     .compact-card:hover {
@@ -615,14 +615,16 @@
     const section = textSection(host);
     const media = findPostMedia(card, section);
 
+    // LinkedIn tema kontrolü: Yalnızca LinkedIn'in kendi teması koyu ise dark moda geç
     const isDark = document.documentElement.classList.contains('theme--dark') ||
       document.body?.classList.contains('theme--dark') ||
-      window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.getAttribute('data-theme') === 'dark';
 
-    const bgCard = isDark ? '#1b1f23' : '#ffffff';
+    // Açık temada yumuşak zarif kart grisi (#f4f6f8), koyu temada antrasit gri (#282e33)
+    const bgCard = isDark ? '#282e33' : '#f4f6f8';
     const textColor = isDark ? '#e1e4e8' : '#1d2226';
     const metaColor = isDark ? '#8b949e' : '#5e6b75';
-    const hintColor = isDark ? '#8b949e' : '#777777';
+    const hintColor = isDark ? '#8b949e' : '#717b84';
 
     const author = getPostAuthorInfo(card, section);
     const actorEl = author?.actor;
