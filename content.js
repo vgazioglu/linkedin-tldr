@@ -6,6 +6,8 @@
     '.feed-shared-inline-show-more-text',
     '[data-view-name="feed-commentary"]',
     '[data-testid="expandable-text-box"]',
+    '.attributed-text-segment-list__container',
+    '.feed-shared-update-v2__description-wrapper',
   ].join(',');
 
   // Start summarizing well before the post scrolls into view so it's ready on arrival.
@@ -181,7 +183,9 @@
   }
 
   function isClamped(el) {
-    const more = el.querySelector('[data-testid="expandable-text-button"]');
+    const more = el.querySelector(
+      '[data-testid="expandable-text-button"], .attributed-text-segment-list__btn-truncation, button[class*="see-more"], button[class*="show-more"], button[class*="more"]'
+    );
     return (more && more.getClientRects().length > 0) || el.scrollHeight > el.clientHeight + 2;
   }
 
@@ -232,21 +236,16 @@
       return;
     }
 
-    if (res?.code === 'NO_KEY' && !noKeyShown) {
-      noKeyShown = true;
-      post.revealed = true;
-      veil.classList.add('tldr-revealed');
-      stamp.classList.add('error');
-      stamp.querySelector('.text').textContent = 'Add your AI Gateway API key in settings';
-      veil.onclick = (e) => {
-        e.stopPropagation();
-        chrome.runtime.sendMessage({ type: 'openOptions' });
-      };
-      layout(post);
-      return;
-    }
-    if (res?.code !== 'NO_KEY') console.warn('[LinkedIn TL;DR]', res?.error);
-    teardown(post);
+    console.warn('[LinkedIn TL;DR]', res?.error);
+    post.revealed = true;
+    veil.classList.add('tldr-revealed');
+    stamp.classList.add('error');
+    stamp.querySelector('.text').textContent = res?.error || 'Özet alınamadı';
+    veil.onclick = (e) => {
+      e.stopPropagation();
+      chrome.runtime.sendMessage({ type: 'openOptions' });
+    };
+    layout(post);
   }
 
   // Images load after we lay out; re-measure so the veil stretches over them.

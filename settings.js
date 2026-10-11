@@ -1,29 +1,23 @@
-// Model presets. `order` pins the fastest inference providers on AI Gateway
-// (Cerebras / Groq run gpt-oss at very high tokens/s).
 export const MODELS = {
-  'openai/gpt-oss-120b': {
-    label: 'gpt-oss-120b · Cerebras → Groq (fastest, recommended)',
-    order: ['cerebras', 'groq'],
-    reasoning: { effort: 'low' },
+  'local-qwen2.5-coder-7b': {
+    label: 'local-qwen2.5-coder-7b · LiteLLM Yerel (Önerilen - Hızlı & Akıcı)',
   },
-  'openai/gpt-oss-20b': {
-    label: 'gpt-oss-20b · Groq (cheapest)',
-    order: ['groq'],
-    reasoning: { effort: 'low' },
+  'local-qwen3.8-distill-9b': {
+    label: 'local-qwen3.8-distill-9b · LiteLLM Yerel',
   },
-  'google/gemini-2.5-flash-lite': {
-    label: 'gemini-2.5-flash-lite · Google',
+  'groq-gpt-oss-120b': {
+    label: 'groq-gpt-oss-120b · LiteLLM Groq (Ultra Hızlı Bulut)',
+  },
+  'gemini-2.5-flash': {
+    label: 'gemini-2.5-flash · LiteLLM Gemini',
   },
 };
 
-// Summaries default to the browser's UI language, e.g. "tr" -> "Turkish".
-const uiLanguage =
-  new Intl.DisplayNames(['en'], { type: 'language' }).of(chrome.i18n.getUILanguage().split('-')[0]) ?? 'English';
-
 export const DEFAULTS = {
-  apiKey: '',
-  model: 'openai/gpt-oss-120b',
-  language: uiLanguage,
+  apiKey: 'sk-master-key-belirleyin',
+  apiUrl: 'http://localhost:4000/v1/chat/completions',
+  model: 'local-qwen2.5-coder-7b',
+  language: 'Turkish',
   minChars: 280,
   enabled: true,
 };

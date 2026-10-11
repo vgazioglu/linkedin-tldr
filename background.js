@@ -1,14 +1,14 @@
 import { MODELS, getSettings } from './settings.js';
 
-const GATEWAY_URL = 'https://ai-gateway.vercel.sh/v1/chat/completions';
+const DEFAULT_API_URL = 'http://localhost:4000/v1/chat/completions';
 const MAX_INPUT_CHARS = 6000;
 const inFlight = new Map();
 
 const systemPrompt = (language) =>
-  `You compress LinkedIn posts. Reply with exactly ONE plain sentence in ${language}, ` +
-  `at most 25 words, stating the post's actual point: what happened, what is claimed, or what is being sold. ` +
-  `Drop motivational fluff, hashtags, emojis and calls to action. ` +
-  `If the post is engagement bait or a humblebrag, say so plainly. No preamble, no quotes.`;
+  `Sen LinkedIn gönderilerini özetleyen bir asistansın. Gönderinin asıl konusunu, iddiasını veya ne anlatıldığını ` +
+  `TAM OLARAK TEK BİR CÜMLE ile ve en fazla 25 kelimede Türkçe olarak özetle. ` +
+  `Motivasyonel laf kalabalığını, hashtagleri, emojileri ve boş çağrıları at. ` +
+  `Giriş cümlesi, tırnak işareti veya 'Bu gönderide...' gibi ifadeler kullanma. Doğrudan özeti ver.`;
 
 chrome.action.onClicked.addListener(() => chrome.runtime.openOptionsPage());
 chrome.runtime.onInstalled.addListener(({ reason }) => {
@@ -30,7 +30,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
 async function summarize(rawText) {
   const settings = await getSettings();
-  if (!settings.apiKey) throw Object.assign(new Error('AI Gateway API key missing'), { code: 'NO_KEY' });
 
   const text = rawText.slice(0, MAX_INPUT_CHARS);
   const key = await cacheKey(`${settings.model}|${settings.language}|${text}`);
@@ -53,34 +52,42 @@ async function summarize(rawText) {
   return inFlight.get(key);
 }
 
-async function requestSummary(text, { apiKey, model, language }) {
-  const preset = MODELS[model] ?? {};
+async function requestSummary(text, { apiKey, apiUrl, model, language }) {
+  const targetUrl = apiUrl || DEFAULT_API_URL;
   const body = {
-    model,
+    model: model || 'qwen2.5:7b',
     messages: [
       { role: 'system', content: systemPrompt(language) },
       { role: 'user', content: text },
     ],
-    max_tokens: 400,
+    max_tokens: 150,
     temperature: 0.3,
     stream: false,
   };
-  if (preset.reasoning) body.reasoning = preset.reasoning;
-  if (preset.order) body.providerOptions = { gateway: { order: preset.order } };
 
-  const res = await fetch(GATEWAY_URL, {
+  const headers = { 'Content-Type': 'application/json' };
+  if (apiKey) {
+    headers['Authorization'] = `Bearer ${apiKey}`;
+  }
+
+  const res = await fetch(targetUrl, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(15000),
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
-    throw new Error(`Gateway ${res.status}: ${detail.slice(0, 200)}`);
+    throw new Error(`API Hatası ${res.status}: ${detail.slice(0, 200)}`);
   }
   const data = await res.json();
-  const summary = data.choices?.[0]?.message?.content?.trim().replace(/^["“”']+|["“”']+$/g, '');
-  if (!summary) throw new Error('Empty summary');
+  let summary = data.choices?.[0]?.message?.content?.trim().replace(/^["“”']+|["“”']+$/g, '');
+  if (!summary) throw new Error('Boş özet döndü');
+
+  // Tek tam cümle garantisi: ilk nokta, soru işareti veya ünlemden sonrasını kes
+  const match = summary.match(/^(.*?[.!?])(?:\s+[A-ZÇĞİÖŞÜ]|$)/s);
+  if (match) summary = match[1].trim();
+
   return summary;
 }
 
