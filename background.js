@@ -60,7 +60,7 @@ async function requestSummary(text, { apiKey, apiUrl, model, language }) {
       { role: 'system', content: systemPrompt(language) },
       { role: 'user', content: text },
     ],
-    max_tokens: 150,
+    max_tokens: 350,
     temperature: 0.3,
     stream: false,
   };
